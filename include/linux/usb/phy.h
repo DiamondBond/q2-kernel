@@ -133,6 +133,8 @@ struct usb_phy {
 	int	(*set_power)(struct usb_phy *x,
 				unsigned mA);
 
+	enum usb_device_power (*get_power)(struct usb_phy *x);
+
 	/* Set phy into suspend mode */
 	int	(*set_suspend)(struct usb_phy *x,
 				int suspend);
@@ -142,7 +144,9 @@ struct usb_phy {
 	 * woken up from suspend status due to external events,
 	 * like vbus change, dp/dm change and id.
 	 */
-	int	(*set_wakeup)(struct usb_phy *x, bool enabled);
+	int	(*set_wakeup)(struct usb_phy *x, int enabled);
+
+	int	(*get_wakeup)(struct usb_phy *x);
 
 	/* notify phy connect status change */
 	int	(*notify_connect)(struct usb_phy *x,
@@ -297,6 +301,18 @@ usb_phy_set_power(struct usb_phy *x, unsigned mA)
 	return 0;
 }
 
+static inline enum usb_device_power
+usb_phy_get_power(struct usb_phy *x)
+{
+	if (!x)
+		return USB_POWER_UNKNOWN;
+
+	if (x->get_power)
+		return x->get_power(x);
+
+	return USB_POWER_UNKNOWN;
+}
+
 /* Context: can sleep */
 static inline int
 usb_phy_set_suspend(struct usb_phy *x, int suspend)
@@ -308,10 +324,19 @@ usb_phy_set_suspend(struct usb_phy *x, int suspend)
 }
 
 static inline int
-usb_phy_set_wakeup(struct usb_phy *x, bool enabled)
+usb_phy_set_wakeup(struct usb_phy *x, int enabled)
 {
 	if (x && x->set_wakeup)
 		return x->set_wakeup(x, enabled);
+	else
+		return 0;
+}
+
+static inline int
+usb_phy_get_wakeup(struct usb_phy *x)
+{
+	if (x && x->get_wakeup)
+		return x->get_wakeup(x);
 	else
 		return 0;
 }

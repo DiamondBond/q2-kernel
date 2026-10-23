@@ -32,8 +32,12 @@
 
 #define cls_dev_to_mmc_host(d)	container_of(d, struct mmc_host, class_dev)
 
+#ifdef CONFIG_MMC_INDEX_MATCH_CONTROLLER
 static DEFINE_IDA(mmc_host_ida);
-
+#else
+static DEFINE_IDR(mmc_host_idr);
+static DEFINE_SPINLOCK(mmc_host_lock);
+#endif
 #ifdef CONFIG_PM_SLEEP
 static int mmc_host_class_prepare(struct device *dev)
 {
@@ -69,13 +73,17 @@ static const struct dev_pm_ops mmc_host_class_dev_pm_ops = {
 #else
 #define MMC_HOST_CLASS_DEV_PM_OPS NULL
 #endif
-
 static void mmc_host_classdev_release(struct device *dev)
 {
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
 	wakeup_source_unregister(host->ws);
-	if (of_alias_get_id(host->parent->of_node, "mmc") < 0)
-		ida_simple_remove(&mmc_host_ida, host->index);
+#ifdef CONFIG_MMC_INDEX_MATCH_CONTROLLER
+	ida_simple_remove(&mmc_host_ida, host->index);
+#else
+	spin_lock(&mmc_host_lock);
+	idr_remove(&mmc_host_idr, host->index);
+	spin_unlock(&mmc_host_lock);
+#endif
 	kfree(host);
 }
 
@@ -423,6 +431,7 @@ int mmc_of_parse_voltage(struct device_node *np, u32 *mask)
 }
 EXPORT_SYMBOL(mmc_of_parse_voltage);
 
+#ifdef CONFIG_MMC_INDEX_MATCH_CONTROLLER
 /**
  * mmc_first_nonreserved_index() - get the first index that is not reserved
  */
@@ -436,6 +445,7 @@ static int mmc_first_nonreserved_index(void)
 
 	return max + 1;
 }
+#endif
 
 /**
  *	mmc_alloc_host - initialise the per-host structure.
@@ -448,7 +458,6 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 {
 	int index;
 	struct mmc_host *host;
-	int alias_id, min_idx, max_idx;
 
 	host = kzalloc(sizeof(struct mmc_host) + extra, GFP_KERNEL);
 	if (!host)
@@ -457,12 +466,17 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 	/* scanning will be enabled when we're ready */
 	host->rescan_disable = 1;
 
-	alias_id = of_alias_get_id(dev->of_node, "mmc");
-	if (alias_id >= 0) {
-		index = alias_id;
-	} else {
-		min_idx = mmc_first_nonreserved_index();
-		max_idx = 0;
+#ifdef CONFIG_MMC_INDEX_MATCH_CONTROLLER
+	{
+		int alias_id, min_idx, max_idx;
+		alias_id = of_alias_get_id(dev->of_node, "mmc");
+		if (alias_id >= 0) {
+			min_idx = alias_id;
+			max_idx = alias_id + 1;
+		} else {
+			min_idx = mmc_first_nonreserved_index();
+			max_idx = 0;
+		}
 
 		index = ida_simple_get(&mmc_host_ida, min_idx, max_idx, GFP_KERNEL);
 		if (index < 0) {
@@ -472,6 +486,19 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 	}
 
 	host->index = index;
+#else
+	idr_preload(GFP_KERNEL);
+	spin_lock(&mmc_host_lock);
+	index = idr_alloc(&mmc_host_idr, host, 0, 0, GFP_NOWAIT);
+	if (index >= 0)
+		host->index = index;
+	spin_unlock(&mmc_host_lock);
+	idr_preload_end();
+	if (index < 0) {
+		kfree(host);
+		return NULL;
+	}
+#endif
 
 	dev_set_name(&host->class_dev, "mmc%d", host->index);
 	host->ws = wakeup_source_register(NULL, dev_name(&host->class_dev));

@@ -681,7 +681,7 @@ done_hash:
 
 	# Restore Stack Pointer
 	mov	frame_RSPSAVE(%rsp), %rsp
-	RET
+	ret
 SYM_FUNC_END(sha512_transform_rorx)
 
 ########################################################################

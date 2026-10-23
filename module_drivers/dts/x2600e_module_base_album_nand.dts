@@ -1,0 +1,171 @@
+/dts-v1/;
+
+#include <dt-bindings/input/input.h>
+#include "x2600.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <generated/autoconf.h>
+#include "x2600-pinctrl.dtsi"
+
+/ {
+	compatible = "ingenic,x2600";
+	/*chosen {
+		bootargs = " console=ttyS2,3000000n8  mem=240M@0x0 share_mem=16M@0xf000000  init=/linuxrc flashtype=nand clk_ignore_unused  root=/dev/mtdblock_bbt_ro2 rootfstype=squashfs ro lpj=11935744";
+	};*/
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <>;
+
+		/*cma reusable 的地址和大小都得对齐， 对齐大小由menuconfig max_order 决定*/
+		reserved_memory: reserved_mem@0xb400000{
+			compatible = "shared-dma-pool";
+			reg = <0xb400000 0x3C00000>;
+			reusable;
+		};
+	};
+
+	md_rmem: md_rmem {
+        status = "okay";
+        compatible = "ingenic,md-rmem-src";
+        memory-region=<&reserved_memory>;
+    };
+
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pe>;
+};
+
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pb>;
+};
+
+&uart2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pd>;
+};
+
+&otg {
+	dr_mode = "otg"; // host,peripheral,otg
+	status = "okay";
+};
+
+&usb {
+	status = "okay";
+};
+
+&otg_phy {
+	status = "okay";
+};
+
+&usb_phy {
+	status = "okay";
+};
+
+&pinctrl {
+	ingenic,gpa_voltage = <GPIO_VOLTAGE_1V8>;
+	ingenic,gpe_msc_voltage = <GPIO_VOLTAGE_3V3>;
+};
+
+&sfc {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&sfc_pd1>;
+	ingenic,sfc-max-frequency = <200000000>;
+	ingenic,sfc-init-frequency= <40000000>;
+	ingenic,use_ofpart_info  = /bits/ 8 <0>;
+	ingenic,spiflash_param_offset = <0>;
+
+};
+
+&tcu0 {
+	status = "disable";
+};
+
+&tcu1 {
+	status = "disable";
+};
+
+/ {
+
+	extclk: extclk {
+		clock-frequency = <24000000>;
+	};
+};
+
+/* 加上 memory-region=<&reserved_memory>; 表示会用上方设置的预留内存地址和大小作为内存申请 */
+&felix {
+	status = "okay";
+	memory-region=<&reserved_memory>;
+};
+
+&jpegd {
+    status = "okay";
+	memory-region=<&reserved_memory>;
+};
+
+&jpege {
+    status = "okay";
+	memory-region=<&reserved_memory>;
+};
+
+&pdma {
+	status = "okay";
+};
+
+&pdma1 {
+	status = "okay";
+};
+
+/* Board Sleep GPIO configuration. */
+/* <0 1 2 3 .... 31>, set one of the pin to state.*/
+&gpa {
+	ingenic,gpio-sleep-pullup 	= <>;
+	ingenic,gpio-sleep-pulldown 	= <>;
+	ingenic,gpio-sleep-hiz		= <>;
+	ingenic,gpio-sleep-low		= <>;
+	ingenic,gpio-sleep-high		= <>;
+	ingenic,gpio-sleep-wakeup	= <>;
+};
+
+&gpb {
+	ingenic,gpio-sleep-pullup 	= <>;
+	ingenic,gpio-sleep-pulldown 	= <>;
+	ingenic,gpio-sleep-hiz		= <>;
+	ingenic,gpio-sleep-low		= <>;
+	ingenic,gpio-sleep-high		= <>;
+	ingenic,gpio-sleep-wakeup	= <>;
+};
+
+&gpc {
+	ingenic,gpio-sleep-pullup 	= <>;
+	ingenic,gpio-sleep-pulldown 	= <>;
+	ingenic,gpio-sleep-hiz		= <>;
+	ingenic,gpio-sleep-low		= <>;
+	ingenic,gpio-sleep-high		= <>;
+	ingenic,gpio-sleep-wakeup	= <>;
+};
+
+&gpd {
+	ingenic,gpio-sleep-pullup 	= <>;
+	ingenic,gpio-sleep-pulldown 	= <>;
+	ingenic,gpio-sleep-hiz		= <>;
+	ingenic,gpio-sleep-low		= <>;
+	ingenic,gpio-sleep-high		= <>;
+	ingenic,gpio-sleep-wakeup	= <>;
+};
+
+&gpe {
+	ingenic,gpio-sleep-pullup 	= <>;
+	ingenic,gpio-sleep-pulldown 	= <>;
+	ingenic,gpio-sleep-hiz		= <>;
+	ingenic,gpio-sleep-low		= <>;
+	ingenic,gpio-sleep-high		= <>;
+	ingenic,gpio-sleep-wakeup	= <>;
+};

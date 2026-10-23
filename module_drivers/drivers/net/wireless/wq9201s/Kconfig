@@ -1,0 +1,12 @@
+menuconfig WQ9201S_WLAN
+	tristate "WS9201S WIFI support"
+	default n
+	help
+	  Enable WQ WLAN driver
+if WQ9201S_WLAN
+
+config CPU_RK3588
+    bool "platform define"
+    depends on WQ9201S_WLAN
+    default n
+endif

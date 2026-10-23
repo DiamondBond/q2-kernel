@@ -94,7 +94,7 @@ static int isight_decode(struct uvc_video_queue *queue, struct uvc_buffer *buf,
 	return 0;
 }
 
-void uvc_video_decode_isight(struct uvc_urb *uvc_urb, struct uvc_buffer *buf,
+int uvc_video_decode_isight(struct uvc_urb *uvc_urb, struct uvc_buffer *buf,
 			struct uvc_buffer *meta_buf)
 {
 	struct urb *urb = uvc_urb->urb;
@@ -131,4 +131,6 @@ void uvc_video_decode_isight(struct uvc_urb *uvc_urb, struct uvc_buffer *buf,
 							buf);
 		} while (ret == -EAGAIN);
 	}
+
+	return 0;
 }

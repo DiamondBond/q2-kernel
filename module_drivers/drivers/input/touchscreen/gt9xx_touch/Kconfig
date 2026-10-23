@@ -1,0 +1,21 @@
+#
+# Focaltech Touchscreen driver configuration
+#
+#
+menuconfig TOUCHSCREEN_GT9XX
+	tristate "GOODIX GT9XC Touchscreen"
+	default n
+	help
+	  Say Y here if you have GOODIX GT9XX Touchscreen.
+
+	  If unsure, say N.
+
+if TOUCHSCREEN_GT9XX
+
+config TOUCHSCREEN_GT9XX_DIRECTORY
+    string "gt ts directory name"
+    default "gt9xx_touch"
+    depends on TOUCHSCREEN_GT9XX
+
+endif
+

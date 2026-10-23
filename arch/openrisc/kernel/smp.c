@@ -134,6 +134,8 @@ asmlinkage __init void secondary_start_kernel(void)
 	set_cpu_online(cpu, true);
 
 	local_irq_enable();
+
+	preempt_disable();
 	/*
 	 * OK, it's off to the idle thread for us
 	 */
@@ -261,7 +263,7 @@ static inline void ipi_flush_tlb_range(void *info)
 	local_flush_tlb_range(NULL, fd->addr1, fd->addr2);
 }
 
-static void smp_flush_tlb_range(const struct cpumask *cmask, unsigned long start,
+static void smp_flush_tlb_range(struct cpumask *cmask, unsigned long start,
 				unsigned long end)
 {
 	unsigned int cpuid;
@@ -309,9 +311,7 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long uaddr)
 void flush_tlb_range(struct vm_area_struct *vma,
 		     unsigned long start, unsigned long end)
 {
-	const struct cpumask *cmask = vma ? mm_cpumask(vma->vm_mm)
-					  : cpu_online_mask;
-	smp_flush_tlb_range(cmask, start, end);
+	smp_flush_tlb_range(mm_cpumask(vma->vm_mm), start, end);
 }
 
 /* Instruction cache invalidate - performed on each cpu */

@@ -1,0 +1,52 @@
+&dpu {
+
+    status = "okay";
+    ingenic,disable-rdma-fb = <1>;
+    /*Defines the init state of composer fb export infomations.*/
+    ingenic,layer-exported = <1 1 0 0>;
+    ingenic,layer-frames = <2 2 2 2>;
+    ingenic,layer-framesize = <800 1280>, <800 1280>, <320 240>, <320 240>; /*Max framesize for each layer.*/
+    layer,color_mode = <0 0 0 0>; /*src fmt*/
+    layer,src-size = <800 1280>, <800 1280>, <320 240>, <240 200>; /*Layer src size should smaller than framesize*/
+    layer,target-size = <800 1280>, <800 1280>, <160 240>, <240 200>; /*Target Size should smaller than src_size.*/
+    layer,target-pos = <0 0>, <0 640>, <340 480>, <100 980>; /*target pos , the start point of the target panel.*/
+    layer,enable = <1 0 0 0>; /*layer enabled or disabled.*/
+    ingenic,logo-pan-layer = <0>; /*on which layer should init logo pan on.*/
+	memory-region=<&reserved_memory>;
+    port {
+    dpu_out_ep: endpoint {
+                remote-endpoint = <&panel_yh101_ep>;
+        };
+    };
+
+};
+/ {
+    display-dbi {
+        compatible = "simple-bus";
+        #interrupt-cells = <1>;
+        #address-cells = <1>;
+        #size-cells = <1>;
+        ranges = <>;
+        panel_yh101 {
+            compatible = "ingenic,yh101";
+            status = "okay";
+            pinctrl-names = "default";
+            ingenic,rst-gpio = <&gpc 8 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+//            ingenic,lcd-pwm-gpio = <&gpb 12 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+            port {
+                panel_yh101_ep: endpoint {
+                        remote-endpoint = <&dpu_out_ep>;
+                    };
+            };
+        };
+    };
+
+    backlight {
+	    compatible = "pwm-backlight";
+	    pinctrl-names = "default";
+	    pinctrl-0 = <&pwm0_pb>;
+	    pwms = <&pwm 0 1000000>;
+	    brightness-levels = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15>;
+		default-brightness-level = <10>;
+	};
+};

@@ -1,0 +1,8 @@
+1、固件路径external/wifi-ble/wifi/wifi_bt_swt6621s/wifi_bt_bin/seekwave_swt6621s，放到文件系统/lib/firmware下，可在板级device.mk里选择install_wifi_bt_swt6621s
+2、参考kernel、buildroot-menuconfig：
+	reference_files/x1600_smartpen_nand_linux_defconfig (seekwave_swt6621s支持以及config_bt、hci支持)
+	reference_files/x1600_smartpen.dtsingenic_x1600_p160b_nand_defconfig  (测试蓝牙bluez的一些工具)
+3、参考设备树：
+	reference_files/x1600_smartpen.dts
+4、参考测试log：
+	seekwave_swt6621s_test.log

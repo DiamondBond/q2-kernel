@@ -511,21 +511,15 @@ struct kvm_cpuid_array {
 	int nent;
 };
 
-static struct kvm_cpuid_entry2 *get_next_cpuid(struct kvm_cpuid_array *array)
-{
-	if (array->nent >= array->maxnent)
-		return NULL;
-
-	return &array->entries[array->nent++];
-}
-
 static struct kvm_cpuid_entry2 *do_host_cpuid(struct kvm_cpuid_array *array,
 					      u32 function, u32 index)
 {
-	struct kvm_cpuid_entry2 *entry = get_next_cpuid(array);
+	struct kvm_cpuid_entry2 *entry;
 
-	if (!entry)
+	if (array->nent >= array->maxnent)
 		return NULL;
+
+	entry = &array->entries[array->nent++];
 
 	entry->function = function;
 	entry->index = index;
@@ -578,8 +572,7 @@ static int __do_cpuid_func_emulated(struct kvm_cpuid_array *array, u32 func)
 	case 7:
 		entry->flags |= KVM_CPUID_FLAG_SIGNIFCANT_INDEX;
 		entry->eax = 0;
-		if (kvm_cpu_cap_has(X86_FEATURE_RDTSCP))
-			entry->ecx = F(RDPID);
+		entry->ecx = F(RDPID);
 		++array->nent;
 	default:
 		break;
@@ -667,15 +660,12 @@ static inline int __do_cpuid_func(struct kvm_cpuid_array *array, u32 function)
 			entry->edx = 0;
 		}
 		break;
+	case 9:
+		break;
 	case 0xa: { /* Architectural Performance Monitoring */
 		struct x86_pmu_capability cap;
 		union cpuid10_eax eax;
 		union cpuid10_edx edx;
-
-		if (!static_cpu_has(X86_FEATURE_ARCH_PERFMON)) {
-			entry->eax = entry->ebx = entry->ecx = entry->edx = 0;
-			break;
-		}
 
 		perf_get_x86_pmu_capability(&cap);
 
@@ -693,8 +683,7 @@ static inline int __do_cpuid_func(struct kvm_cpuid_array *array, u32 function)
 
 		edx.split.num_counters_fixed = min(cap.num_counters_fixed, MAX_FIXED_COUNTERS);
 		edx.split.bit_width_fixed = cap.bit_width_fixed;
-		if (cap.version)
-			edx.split.anythread_deprecated = 1;
+		edx.split.anythread_deprecated = 1;
 		edx.split.reserved1 = 0;
 		edx.split.reserved2 = 0;
 
@@ -704,13 +693,22 @@ static inline int __do_cpuid_func(struct kvm_cpuid_array *array, u32 function)
 		entry->edx = edx.full;
 		break;
 	}
+	/*
+	 * Per Intel's SDM, the 0x1f is a superset of 0xb,
+	 * thus they can be handled by common code.
+	 */
 	case 0x1f:
 	case 0xb:
 		/*
-		 * No topology; a valid topology is indicated by the presence
-		 * of subleaf 1.
+		 * Populate entries until the level type (ECX[15:8]) of the
+		 * previous entry is zero.  Note, CPUID EAX.{0x1f,0xb}.0 is
+		 * the starting entry, filled by the primary do_host_cpuid().
 		 */
-		entry->eax = entry->ebx = entry->ecx = 0;
+		for (i = 1; entry->ecx & 0xff00; ++i) {
+			entry = do_host_cpuid(array, function, i);
+			if (!entry)
+				goto out;
+		}
 		break;
 	case 0xd:
 		entry->eax &= supported_xcr0;
@@ -810,13 +808,11 @@ static inline int __do_cpuid_func(struct kvm_cpuid_array *array, u32 function)
 		entry->eax = min(entry->eax, 0x8000001f);
 		break;
 	case 0x80000001:
-		entry->ebx &= ~GENMASK(27, 16);
 		cpuid_entry_override(entry, CPUID_8000_0001_EDX);
 		cpuid_entry_override(entry, CPUID_8000_0001_ECX);
 		break;
 	case 0x80000006:
-		/* Drop reserved bits, pass host L2 cache and TLB info. */
-		entry->edx &= ~GENMASK(17, 16);
+		/* L2 cache and TLB: pass through host info. */
 		break;
 	case 0x80000007: /* Advanced power management */
 		/* invariant TSC is CPUID.80000007H:EDX[8] */
@@ -830,16 +826,9 @@ static inline int __do_cpuid_func(struct kvm_cpuid_array *array, u32 function)
 		unsigned virt_as = max((entry->eax >> 8) & 0xff, 48U);
 		unsigned phys_as = entry->eax & 0xff;
 
-		/*
-		 * Use bare metal's MAXPHADDR if the CPU doesn't report guest
-		 * MAXPHYADDR separately, or if TDP (NPT) is disabled, as the
-		 * guest version "applies only to guests using nested paging".
-		 */
-		if (!g_phys_as || !tdp_enabled)
+		if (!g_phys_as)
 			g_phys_as = phys_as;
-
 		entry->eax = g_phys_as | (virt_as << 8);
-		entry->ecx &= ~(GENMASK(31, 16) | GENMASK(11, 8));
 		entry->edx = 0;
 		cpuid_entry_override(entry, CPUID_8000_0008_EBX);
 		break;
@@ -859,13 +848,7 @@ static inline int __do_cpuid_func(struct kvm_cpuid_array *array, u32 function)
 		entry->ecx = entry->edx = 0;
 		break;
 	case 0x8000001a:
-		entry->eax &= GENMASK(2, 0);
-		entry->ebx = entry->ecx = entry->edx = 0;
-		break;
 	case 0x8000001e:
-		/* Do not return host topology information.  */
-		entry->eax = entry->ebx = entry->ecx = 0;
-		entry->edx = 0; /* reserved */
 		break;
 	/* Support memory encryption cpuid if host supports it */
 	case 0x8000001F:

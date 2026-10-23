@@ -374,7 +374,8 @@ static int rpmsg_eptdev_create(struct rpmsg_ctrldev *ctrldev,
 	if (ret < 0)
 		goto free_minor_ida;
 	dev->id = ret;
-	dev_set_name(dev, "rpmsg%d", ret);
+//	dev_set_name(dev, "rpmsg%d", ret);
+	dev_set_name(dev, "rpmsg-%s", chinfo.name);
 
 	ret = cdev_device_add(&eptdev->cdev, &eptdev->dev);
 	if (ret)
@@ -521,9 +522,15 @@ static void rpmsg_chrdev_remove(struct rpmsg_device *rpdev)
 	put_device(&ctrldev->dev);
 }
 
+static struct rpmsg_device_id rpmsg_chrdev_id_table[] = {
+	{.name = "rpmsg_chrdev"},
+	{},
+};
+
 static struct rpmsg_driver rpmsg_chrdev_driver = {
 	.probe = rpmsg_chrdev_probe,
 	.remove = rpmsg_chrdev_remove,
+	.id_table = rpmsg_chrdev_id_table,
 	.drv = {
 		.name = "rpmsg_chrdev",
 	},

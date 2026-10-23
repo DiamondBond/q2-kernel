@@ -14,7 +14,7 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/ch9.h>
 #include <linux/list.h>
-#include <linux/timer.h>
+#include <linux/hrtimer.h>
 #include <linux/time.h>
 #include <linux/sysfs.h>
 
@@ -77,9 +77,9 @@ enum tr_state {
 };
 
 struct transfer_timer {
-	struct timer_list timer;
+	struct hrtimer timer;
 	enum tr_state state;
-	unsigned long frame_start;
+	ktime_t frame_start;
 	int frame_limit;
 };
 
@@ -159,7 +159,7 @@ int v_rx_loop(void *data);
 
 void v_init_timer(struct vudc *udc);
 void v_start_timer(struct vudc *udc);
-void v_kick_timer(struct vudc *udc, unsigned long time);
+void v_kick_timer(struct vudc *udc);
 void v_stop_timer(struct vudc *udc);
 
 /* vudc_dev.c */

@@ -594,6 +594,17 @@ static int mipspmu_get_irq(void)
 	int err;
 
 	if (mipspmu.irq >= 0) {
+
+#ifdef CONFIG_MACH_XBURST2
+                /* on ingenic xburst2 cpu, should request percpu interrupt. */
+                err = request_percpu_irq(mipspmu.irq, mipsxx_pmu_handle_irq,
+                                "mips_perf_pmu", &mipspmu);
+
+                if (err) {
+                        pr_warn("Unable to request IRQ%d for MIPS "
+                           "performance counters!\n", mipspmu.irq);
+                }
+#else
 		/* Request my own irq handler. */
 		err = request_irq(mipspmu.irq, mipsxx_pmu_handle_irq,
 				  IRQF_PERCPU | IRQF_NOBALANCING |
@@ -604,6 +615,7 @@ static int mipspmu_get_irq(void)
 			pr_warn("Unable to request IRQ%d for MIPS performance counters!\n",
 				mipspmu.irq);
 		}
+#endif
 	} else if (cp0_perfcount_irq < 0) {
 		/*
 		 * We are sharing the irq number with the timer interrupt.
@@ -621,8 +633,13 @@ static int mipspmu_get_irq(void)
 
 static void mipspmu_free_irq(void)
 {
-	if (mipspmu.irq >= 0)
-		free_irq(mipspmu.irq, &mipspmu);
+	if (mipspmu.irq >= 0) {
+#ifdef CONFIG_MACH_XBURST2
+	free_percpu_irq(mipspmu.irq, &mipspmu);
+#else
+	free_irq(mipspmu.irq, NULL);
+#endif
+	}
 	else if (cp0_perfcount_irq < 0)
 		perf_irq = save_perf_irq;
 }
@@ -1009,6 +1026,13 @@ static const struct mips_perf_event xlp_event_map[PERF_COUNT_HW_MAX] = {
 	[PERF_COUNT_HW_CACHE_MISSES] = { 0x07, CNTR_ALL }, /* PAPI_L1_ICM */
 	[PERF_COUNT_HW_BRANCH_INSTRUCTIONS] = { 0x1b, CNTR_ALL }, /* PAPI_BR_CN */
 	[PERF_COUNT_HW_BRANCH_MISSES] = { 0x1c, CNTR_ALL }, /* PAPI_BR_MSP */
+};
+
+static const struct mips_perf_event ingenic_event_map[PERF_COUNT_HW_MAX] = {
+        [PERF_COUNT_HW_CPU_CYCLES] = { 0x00, CNTR_EVEN | CNTR_ODD, P },
+        [PERF_COUNT_HW_INSTRUCTIONS] = { 0x01, CNTR_EVEN | CNTR_ODD, T },
+        [PERF_COUNT_HW_BRANCH_INSTRUCTIONS] = { 0x02, CNTR_EVEN, T },
+        [PERF_COUNT_HW_BRANCH_MISSES] = { 0x02, CNTR_ODD, T },
 };
 
 /* 24K/34K/1004K/interAptiv/loongson1 cores share the same cache event map. */
@@ -1533,6 +1557,47 @@ static const struct mips_perf_event xlp_cache_map
 	},
 },
 };
+
+static const struct mips_perf_event ingenic_cache_map
+				[PERF_COUNT_HW_CACHE_MAX]
+				[PERF_COUNT_HW_CACHE_OP_MAX]
+				[PERF_COUNT_HW_CACHE_RESULT_MAX] = {
+[C(L1D)] = {
+	/*
+	 * Like some other architectures (e.g. ARM), the performance
+	 * counters don't differentiate between read and write
+	 * accesses/misses, so this isn't strictly correct, but it's the
+	 * best we can do. Writes and reads get combined.
+	 */
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { 0x04, CNTR_EVEN, T },
+		[C(RESULT_MISS)]	= { 0x04, CNTR_ODD, T },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { 0x05, CNTR_EVEN, T },
+		[C(RESULT_MISS)]	= { 0x05, CNTR_ODD, T },
+	},
+},
+[C(L1I)] = {
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { 0x07, CNTR_EVEN, T },
+		[C(RESULT_MISS)]	= { 0x07, CNTR_ODD, T },
+	},
+},
+[C(DTLB)] = {
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { 0x09, CNTR_EVEN, T },
+		[C(RESULT_MISS)]	= { 0x09, CNTR_ODD, T },
+	},
+},
+[C(ITLB)] = {
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { 0x08, CNTR_EVEN, T },
+		[C(RESULT_MISS)]	= { 0x08, CNTR_ODD, T },
+	},
+},
+};
+
 
 static int __hw_perf_event_init(struct perf_event *event)
 {
@@ -2092,6 +2157,12 @@ init_hw_perf_events(void)
 		mipspmu.general_event_map = &xlp_event_map;
 		mipspmu.cache_event_map = &xlp_cache_map;
 		mipspmu.map_raw_event = xlp_pmu_map_raw_event;
+		break;
+	case CPU_XBURST:
+	case CPU_XBURST2:
+		mipspmu.name = "ingenic";
+		mipspmu.general_event_map = &ingenic_event_map;
+		mipspmu.cache_event_map	  = &ingenic_cache_map;
 		break;
 	default:
 		pr_cont("Either hardware does not support performance "

@@ -1191,6 +1191,13 @@ enum usb_device_state {
 	 */
 };
 
+enum usb_device_power {
+	USB_POWER_UNKNOWN = 0,
+	USB_POWER_SDP,		/* Standard Downstream Port */
+	USB_POWER_DCP,		/* Dedicated Charging Ports */
+	USB_POWER_CDP,		/* Charging Downstream Port */
+};
+
 enum usb3_link_state {
 	USB3_LPM_U0 = 0,
 	USB3_LPM_U1,

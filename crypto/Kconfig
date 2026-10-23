@@ -23,6 +23,11 @@ if CRYPTO
 
 comment "Crypto core or helper"
 
+config CRYPTO_JENT_QUICK_START
+	bool "jitterentropy quick start"
+	help
+	  Say Y here to start using the kernel thread to initialize jitterentropy
+
 config CRYPTO_FIPS
 	bool "FIPS 200 compliance"
 	depends on (CRYPTO_ANSI_CPRNG || CRYPTO_DRBG) && !CRYPTO_MANAGER_DISABLE_TESTS

@@ -28,6 +28,7 @@ suffix-$(CONFIG_KERNEL_BZIP2)	:= bz2
 suffix-$(CONFIG_KERNEL_GZIP)	:= gz
 suffix-$(CONFIG_KERNEL_LZMA)	:= lzma
 suffix-$(CONFIG_KERNEL_LZO)	:= lzo
+suffix-$(CONFIG_KERNEL_ZSTD)	:= zstd
 
 targets := vmlinux.ecoff
 quiet_cmd_ecoff = ECOFF	  $@
@@ -56,8 +57,15 @@ UIMAGE_ENTRYADDR = $(VMLINUX_ENTRY_ADDRESS)
 
 extra-y += vmlinux.bin.bz2
 extra-y += vmlinux.bin.gz
+extra-y += vmlinux.bin.split.gz
 extra-y += vmlinux.bin.lzma
+extra-y += vmlinux.bin.split.lzma
 extra-y += vmlinux.bin.lzo
+extra-y += vmlinux.bin.zstd
+extra-y += vmlinux.bin.split.zstd
+
+quiet_cmd_zstd_nosize = ZSTD    $@
+      cmd_zstd_nosize = $(ZSTD) -16 --no-check -q -f -c $< > $@
 
 $(obj)/vmlinux.bin.bz2: $(obj)/vmlinux.bin FORCE
 	$(call if_changed,bzip2)
@@ -65,11 +73,23 @@ $(obj)/vmlinux.bin.bz2: $(obj)/vmlinux.bin FORCE
 $(obj)/vmlinux.bin.gz: $(obj)/vmlinux.bin FORCE
 	$(call if_changed,gzip)
 
+$(obj)/vmlinux.bin.split.gz: $(obj)/vmlinux.bin FORCE
+	$(call if_changed,split_gzip)
+
 $(obj)/vmlinux.bin.lzma: $(obj)/vmlinux.bin FORCE
 	$(call if_changed,lzma)
 
+$(obj)/vmlinux.bin.split.lzma: $(obj)/vmlinux.bin FORCE
+	$(call if_changed,split_lzma)
+
 $(obj)/vmlinux.bin.lzo: $(obj)/vmlinux.bin FORCE
 	$(call if_changed,lzo)
+
+$(obj)/vmlinux.bin.zstd: $(obj)/vmlinux.bin FORCE
+	$(call if_changed,zstd_nosize)
+
+$(obj)/vmlinux.bin.split.zstd: $(obj)/vmlinux.bin FORCE
+	$(call if_changed,split_zstd)
 
 #
 # Compressed u-boot images
@@ -81,6 +101,12 @@ targets += uImage.bz2
 targets += uImage.gz
 targets += uImage.lzma
 targets += uImage.lzo
+targets += uImage.zstd
+
+targets += uImage_split
+targets += uImage.split.gz
+targets += uImage.split.lzma
+targets += uImage.split.zstd
 
 $(obj)/uImage.bin: $(obj)/vmlinux.bin FORCE
 	$(call if_changed,uimage,none)
@@ -97,7 +123,23 @@ $(obj)/uImage.lzma: $(obj)/vmlinux.bin.lzma FORCE
 $(obj)/uImage.lzo: $(obj)/vmlinux.bin.lzo FORCE
 	$(call if_changed,uimage,lzo)
 
+$(obj)/uImage.zstd: $(obj)/vmlinux.bin.zstd FORCE
+	$(call if_changed,uimage,zstd)
+
 $(obj)/uImage: $(obj)/uImage.$(suffix-y)
+	@ln -sf $(notdir $<) $@
+	@echo '  Image $@ is ready'
+
+$(obj)/uImage.split.gz: $(obj)/vmlinux.bin.split.gz FORCE
+	$(call if_changed,uimage,gzip)
+
+$(obj)/uImage.split.lzma: $(obj)/vmlinux.bin.split.lzma FORCE
+	$(call if_changed,uimage,lzma)
+
+$(obj)/uImage.split.zstd: $(obj)/vmlinux.bin.split.zstd FORCE
+	$(call if_changed,uimage,zstd)
+
+$(obj)/uImage_split: $(obj)/uImage.split.$(suffix-y)
 	@ln -sf $(notdir $<) $@
 	@echo '  Image $@ is ready'
 

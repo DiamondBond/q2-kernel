@@ -470,6 +470,10 @@ void *initial_boot_params __ro_after_init;
 
 static u32 of_fdt_crc32;
 
+__weak unsigned int __init arch_get_ddr_size(void)
+{
+	return 0;
+}
 /**
  * __reserved_mem_reserve_reg() - reserve all memory described in 'reg' property
  */
@@ -482,10 +486,39 @@ static int __init __reserved_mem_reserve_reg(unsigned long node,
 	const __be32 *prop;
 	int first = 1;
 	bool nomap;
+	unsigned char reg_name[16] = {0};
+	unsigned int ddr_size = arch_get_ddr_size();
 
-	prop = of_get_flat_dt_prop(node, "reg", &len);
-	if (!prop)
-		return -ENOENT;
+
+	if(ddr_size > 256) {
+		/*
+		   - 根据ddr容量大小，选择合适的reg。
+		   - 预留内存只能使用低端256M.
+		 */
+		ddr_size = 256;
+	}
+
+	if(ddr_size == 0) {
+		/*
+		   - 如果识别的ddr_size = 0, 走默认配置.
+		*/
+		prop = of_get_flat_dt_prop(node, "reg", &len);
+		if(!prop)
+			return -ENOENT;
+	} else {
+
+		/*
+		   - 如果ddr_size有效，先自动探测一下配置，如果失败走默认配置.
+		 */
+		sprintf(reg_name, "reg-%dM", ddr_size);
+		prop = of_get_flat_dt_prop(node, reg_name, &len);
+		if (!prop) {
+			printk("%s not found!\n", reg_name);
+			prop = of_get_flat_dt_prop(node, "reg", &len);
+			if(!prop)
+				return -ENOENT;
+		}
+	}
 
 	if (len && len % t_len != 0) {
 		pr_err("Reserved memory: invalid reg property in '%s', skipping node.\n",

@@ -3,36 +3,6 @@
  * platform.c - DesignWare HS OTG Controller platform driver
  *
  * Copyright (C) Matthijs Kooijman <matthijs@stdin.nl>
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions, and the following disclaimer,
- *    without modification.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. The names of the above-listed copyright holders may not be used
- *    to endorse or promote products derived from this software without
- *    specific prior written permission.
- *
- * ALTERNATIVELY, this software may be distributed under the terms of the
- * GNU General Public License ("GPL") as published by the Free Software
- * Foundation; either version 2 of the License, or (at your option) any
- * later version.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
- * IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include <linux/kernel.h>
@@ -47,14 +17,120 @@
 #include <linux/phy/phy.h>
 #include <linux/platform_data/s3c-hsotg.h>
 #include <linux/reset.h>
+#ifdef CONFIG_USB_DWC2_QUICK_START
+#include <linux/workqueue.h>
+#endif
 
 #include <linux/usb/of.h>
-
 #include "core.h"
 #include "hcd.h"
 #include "debug.h"
 
 static const char dwc2_driver_name[] = "dwc2";
+
+#ifdef CONFIG_USB_DWC2_QUICK_START
+enum dwc2_quick_start_init_state {
+	DWC2_QUICK_START_INIT_PENDING,
+	DWC2_QUICK_START_INIT_RUNNING,
+	DWC2_QUICK_START_INIT_READY,
+	DWC2_QUICK_START_INIT_FAILED,
+};
+
+/* USB core temporarily owns driver_data while it creates the HCD. */
+struct dwc2_quick_start {
+	struct work_struct init_work;
+	struct dwc2_hsotg *hsotg;
+	struct mutex lock;
+	enum dwc2_quick_start_init_state init_state;
+	bool stopping;
+	bool init_deferred;
+};
+
+static void dwc2_quick_start_release(struct device *dev, void *data)
+{
+	struct dwc2_quick_start *quick_start = data;
+
+	mutex_lock(&quick_start->lock);
+	quick_start->stopping = true;
+	mutex_unlock(&quick_start->lock);
+
+	cancel_work_sync(&quick_start->init_work);
+}
+
+static struct dwc2_quick_start *
+dwc2_quick_start_get(struct platform_device *dev)
+{
+	struct dwc2_quick_start *quick_start;
+
+	/*
+	 * The state is registered before init_work is queued and remains until
+	 * after ->remove(). driver_data is unsafe here: usb_create_hcd() can
+	 * temporarily replace it with a struct usb_hcd.
+	 */
+	quick_start = devres_find(&dev->dev, dwc2_quick_start_release,
+				  NULL, NULL);
+	if (!quick_start)
+		dev_err(&dev->dev, "quick-start state not found\n");
+
+	return quick_start;
+}
+
+static bool dwc2_quick_start_stop(struct dwc2_quick_start *quick_start)
+{
+	bool ready;
+
+	mutex_lock(&quick_start->lock);
+	quick_start->stopping = true;
+	mutex_unlock(&quick_start->lock);
+
+	cancel_work_sync(&quick_start->init_work);
+
+	mutex_lock(&quick_start->lock);
+	ready = quick_start->init_state == DWC2_QUICK_START_INIT_READY;
+	mutex_unlock(&quick_start->lock);
+
+	return ready;
+}
+
+static bool dwc2_quick_start_suspend(struct dwc2_quick_start *quick_start)
+{
+	bool ready;
+
+	mutex_lock(&quick_start->lock);
+	if (quick_start->init_state == DWC2_QUICK_START_INIT_PENDING ||
+	    quick_start->init_state == DWC2_QUICK_START_INIT_RUNNING)
+		quick_start->init_deferred = true;
+	ready = quick_start->init_state == DWC2_QUICK_START_INIT_READY;
+	mutex_unlock(&quick_start->lock);
+
+	if (!ready)
+		cancel_work_sync(&quick_start->init_work);
+
+	mutex_lock(&quick_start->lock);
+	ready = quick_start->init_state == DWC2_QUICK_START_INIT_READY;
+	if (quick_start->init_state != DWC2_QUICK_START_INIT_PENDING)
+		quick_start->init_deferred = false;
+	mutex_unlock(&quick_start->lock);
+
+	return ready;
+}
+
+static bool dwc2_quick_start_resume(struct dwc2_quick_start *quick_start)
+{
+	bool ready;
+
+	mutex_lock(&quick_start->lock);
+	if (quick_start->init_state == DWC2_QUICK_START_INIT_PENDING &&
+	    !quick_start->stopping && quick_start->init_deferred) {
+		quick_start->init_deferred = false;
+		schedule_work(&quick_start->init_work);
+	}
+	ready = quick_start->init_state == DWC2_QUICK_START_INIT_READY;
+	mutex_unlock(&quick_start->lock);
+
+	return ready;
+}
+#endif
 
 /*
  * Check the dr_mode against the module configuration and hardware
@@ -111,6 +187,11 @@ static int dwc2_get_dr_mode(struct dwc2_hsotg *hsotg)
 	}
 
 	if (mode != hsotg->dr_mode) {
+		if (hsotg->dr_mode != USB_DR_MODE_OTG) {
+			dev_err(hsotg->dev, "dr_mode mismatch.\n");
+			return -EINVAL;
+		}
+
 		dev_warn(hsotg->dev,
 			 "Configuration mismatch. dr_mode forced to %s\n",
 			mode == USB_DR_MODE_HOST ? "host" : "device");
@@ -121,6 +202,13 @@ static int dwc2_get_dr_mode(struct dwc2_hsotg *hsotg)
 	return 0;
 }
 
+static void __dwc2_disable_regulators(void *data)
+{
+	struct dwc2_hsotg *hsotg = data;
+
+	regulator_bulk_disable(ARRAY_SIZE(hsotg->supplies), hsotg->supplies);
+}
+
 static int __dwc2_lowlevel_hw_enable(struct dwc2_hsotg *hsotg)
 {
 	struct platform_device *pdev = to_platform_device(hsotg->dev);
@@ -128,6 +216,11 @@ static int __dwc2_lowlevel_hw_enable(struct dwc2_hsotg *hsotg)
 
 	ret = regulator_bulk_enable(ARRAY_SIZE(hsotg->supplies),
 				    hsotg->supplies);
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(&pdev->dev,
+				       __dwc2_disable_regulators, hsotg);
 	if (ret)
 		return ret;
 
@@ -142,9 +235,9 @@ static int __dwc2_lowlevel_hw_enable(struct dwc2_hsotg *hsotg)
 	} else if (hsotg->plat && hsotg->plat->phy_init) {
 		ret = hsotg->plat->phy_init(pdev, hsotg->plat->phy_type);
 	} else {
-		ret = phy_init(hsotg->phy);
+		ret = phy_power_on(hsotg->phy);
 		if (ret == 0)
-			ret = phy_power_on(hsotg->phy);
+			ret = phy_init(hsotg->phy);
 	}
 
 	return ret;
@@ -176,9 +269,9 @@ static int __dwc2_lowlevel_hw_disable(struct dwc2_hsotg *hsotg)
 	} else if (hsotg->plat && hsotg->plat->phy_exit) {
 		ret = hsotg->plat->phy_exit(pdev, hsotg->plat->phy_type);
 	} else {
-		ret = phy_power_off(hsotg->phy);
+		ret = phy_exit(hsotg->phy);
 		if (ret == 0)
-			ret = phy_exit(hsotg->phy);
+			ret = phy_power_off(hsotg->phy);
 	}
 	if (ret)
 		return ret;
@@ -186,7 +279,7 @@ static int __dwc2_lowlevel_hw_disable(struct dwc2_hsotg *hsotg)
 	if (hsotg->clk)
 		clk_disable_unprepare(hsotg->clk);
 
-	return regulator_bulk_disable(ARRAY_SIZE(hsotg->supplies), hsotg->supplies);
+	return 0;
 }
 
 /**
@@ -235,33 +328,32 @@ static int dwc2_lowlevel_hw_init(struct dwc2_hsotg *hsotg)
 	if (IS_ERR(hsotg->phy)) {
 		ret = PTR_ERR(hsotg->phy);
 		switch (ret) {
-		case -ENODEV:
-		case -ENOSYS:
-			hsotg->phy = NULL;
-			break;
-		case -EPROBE_DEFER:
-			return ret;
-		default:
-			dev_err(hsotg->dev, "error getting phy %d\n", ret);
-			return ret;
-		}
-	}
-
-	if (!hsotg->phy) {
-		hsotg->uphy = devm_usb_get_phy(hsotg->dev, USB_PHY_TYPE_USB2);
-		if (IS_ERR(hsotg->uphy)) {
-			ret = PTR_ERR(hsotg->uphy);
-			switch (ret) {
 			case -ENODEV:
-			case -ENXIO:
-				hsotg->uphy = NULL;
+			case -ENOSYS:
+				hsotg->phy = NULL;
 				break;
 			case -EPROBE_DEFER:
 				return ret;
 			default:
-				dev_err(hsotg->dev, "error getting usb phy %d\n",
-					ret);
+				dev_err(hsotg->dev, "error getting phy %d\n", ret);
 				return ret;
+		}
+	}
+
+	if (!hsotg->phy) {
+		hsotg->uphy = devm_usb_get_phy_by_phandle(hsotg->dev, "ingenic,usbphy", 0);
+		if (IS_ERR(hsotg->uphy)) {
+			ret = PTR_ERR(hsotg->uphy);
+			switch (ret) {
+				case -ENODEV:
+				case -ENXIO:
+					hsotg->uphy = NULL;
+					break;
+				case -EPROBE_DEFER:
+					return ret;
+				default:
+					dev_err(hsotg->dev, "error getting usb phy %d\n",ret);
+					return ret;
 			}
 		}
 	}
@@ -269,8 +361,9 @@ static int dwc2_lowlevel_hw_init(struct dwc2_hsotg *hsotg)
 	hsotg->plat = dev_get_platdata(hsotg->dev);
 
 	/* Clock */
-	hsotg->clk = devm_clk_get_optional(hsotg->dev, "otg");
+	hsotg->clk = of_clk_get(hsotg->dev->of_node, 0);
 	if (IS_ERR(hsotg->clk)) {
+		hsotg->clk = NULL;
 		dev_err(hsotg->dev, "cannot get otg clock\n");
 		return PTR_ERR(hsotg->clk);
 	}
@@ -287,7 +380,21 @@ static int dwc2_lowlevel_hw_init(struct dwc2_hsotg *hsotg)
 				ret);
 		return ret;
 	}
+
 	return 0;
+}
+
+static struct dwc2_hsotg *dwc2_alloc_hsotg(struct platform_device *dev)
+{
+	struct dwc2_hsotg *hsotg;
+
+	hsotg = devm_kzalloc(&dev->dev, sizeof(*hsotg), GFP_KERNEL);
+	if (!hsotg)
+		return ERR_PTR(-ENOMEM);
+
+	hsotg->dev = &dev->dev;
+
+	return hsotg;
 }
 
 /**
@@ -303,7 +410,50 @@ static int dwc2_lowlevel_hw_init(struct dwc2_hsotg *hsotg)
  */
 static int dwc2_driver_remove(struct platform_device *dev)
 {
-	struct dwc2_hsotg *hsotg = platform_get_drvdata(dev);
+	struct dwc2_hsotg *hsotg;
+	struct dwc2_gregs_backup *gr;
+	int ret = 0;
+
+#ifdef CONFIG_USB_DWC2_QUICK_START
+	struct dwc2_quick_start *quick_start = dwc2_quick_start_get(dev);
+
+	if (!quick_start)
+		return -ENODEV;
+
+	hsotg = quick_start->hsotg;
+	if (!dwc2_quick_start_stop(quick_start)) {
+		platform_set_drvdata(dev, NULL);
+		return 0;
+	}
+#else
+	hsotg = platform_get_drvdata(dev);
+#endif
+
+	if (!hsotg)
+		return 0;
+
+	gr = &hsotg->gr_backup;
+
+	/* Exit Hibernation when driver is removed. */
+	if (hsotg->hibernated) {
+		if (gr->gotgctl & GOTGCTL_CURMODE_HOST)
+			ret = dwc2_exit_hibernation(hsotg, 0, 0, 1);
+		else
+			ret = dwc2_exit_hibernation(hsotg, 0, 0, 0);
+
+		if (ret)
+			dev_err(hsotg->dev,
+				"exit hibernation failed.\n");
+	}
+
+	/* Exit clock gating when driver is removed. */
+	if (hsotg->params.power_down == DWC2_POWER_DOWN_PARAM_NONE &&
+	    hsotg->bus_suspended) {
+		if (dwc2_is_device_mode(hsotg))
+			dwc2_gadget_exit_clock_gating(hsotg, 0);
+		else
+			dwc2_host_exit_clock_gating(hsotg, 0);
+	}
 
 	dwc2_debugfs_exit(hsotg);
 	if (hsotg->hcd_enabled)
@@ -312,9 +462,6 @@ static int dwc2_driver_remove(struct platform_device *dev)
 		dwc2_hsotg_remove(hsotg);
 
 	dwc2_drd_exit(hsotg);
-
-	if (hsotg->params.activate_stm_id_vb_detection)
-		regulator_disable(hsotg->usb33d);
 
 	if (hsotg->ll_hw_enabled)
 		dwc2_lowlevel_hw_disable(hsotg);
@@ -339,7 +486,22 @@ static int dwc2_driver_remove(struct platform_device *dev)
  */
 static void dwc2_driver_shutdown(struct platform_device *dev)
 {
-	struct dwc2_hsotg *hsotg = platform_get_drvdata(dev);
+	struct dwc2_hsotg *hsotg;
+
+#ifdef CONFIG_USB_DWC2_QUICK_START
+	struct dwc2_quick_start *quick_start = dwc2_quick_start_get(dev);
+
+	if (!quick_start)
+		return;
+
+	hsotg = quick_start->hsotg;
+	if (!dwc2_quick_start_stop(quick_start))
+		return;
+#else
+	hsotg = platform_get_drvdata(dev);
+#endif
+	if (!hsotg)
+		return;
 
 	dwc2_disable_global_interrupts(hsotg);
 	synchronize_irq(hsotg->irq);
@@ -363,7 +525,7 @@ static bool dwc2_check_core_endianness(struct dwc2_hsotg *hsotg)
 }
 
 /**
- * Check core version
+ * dwc2_check_core_version() - Check core version
  *
  * @hsotg: Programming view of the DWC_otg controller
  *
@@ -393,29 +555,48 @@ int dwc2_check_core_version(struct dwc2_hsotg *hsotg)
 	return 0;
 }
 
-/**
- * dwc2_driver_probe() - Called when the DWC_otg core is bound to the DWC_otg
- * driver
- *
- * @dev: Platform device
- *
- * This routine creates the driver components required to control the device
- * (core, HCD, and PCD) and initializes the device. The driver components are
- * stored in a dwc2_hsotg structure. A reference to the dwc2_hsotg is saved
- * in the device private data. This allows the driver to access the dwc2_hsotg
- * structure on subsequent calls to driver methods for this device.
- */
-static int dwc2_driver_probe(struct platform_device *dev)
+static ssize_t show_id_status(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	struct dwc2_hsotg *hsotg;
+	struct dwc2_hsotg *hsotg = dev_get_drvdata(dev);
+	unsigned long gotgctl = dwc2_readl(hsotg, GOTGCTL);
+	return sprintf(buf, "%s\n", (gotgctl & GOTGCTL_CONID_B) ? "device" : "host");
+}
+
+static ssize_t dwc2_mode_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	char *mode;
+	struct dwc2_hsotg *hsotg = dev_get_drvdata(dev);
+
+	if (hsotg->dr_mode == USB_DR_MODE_HOST) {
+		mode = "host";
+	} else if (hsotg->dr_mode == USB_DR_MODE_PERIPHERAL) {
+		mode = "peripheral";
+	} else {
+		mode = "otg";
+	}
+
+	return sprintf(buf, "%s\n", mode);
+}
+
+static DEVICE_ATTR(id_status, S_IRUGO, show_id_status, NULL);
+static DEVICE_ATTR(dwc2_mode, S_IRUGO, dwc2_mode_show, NULL);
+
+#if IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL) || \
+	IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)
+static ssize_t show_connected(struct device *dev, struct device_attribute *attr, char *buf)
+{
+
+	struct dwc2_hsotg *hsotg = dev_get_drvdata(dev);
+	return sprintf(buf, "%s\n", hsotg->connected ? "connect" : "disconnect");
+}
+
+static DEVICE_ATTR(connected, S_IRUGO, show_connected, NULL);
+#endif /* CONFIG_USB_DWC2_NEW_PERIPHERAL || CONFIG_USB_DWC2_NEW_DUAL_ROLE */
+
+static int dwc2_init(struct platform_device *dev, struct dwc2_hsotg *hsotg)
+{
 	struct resource *res;
 	int retval;
-
-	hsotg = devm_kzalloc(&dev->dev, sizeof(*hsotg), GFP_KERNEL);
-	if (!hsotg)
-		return -ENOMEM;
-
-	hsotg->dev = &dev->dev;
 
 	/*
 	 * Use reasonable defaults so platforms don't have to provide these.
@@ -425,25 +606,29 @@ static int dwc2_driver_probe(struct platform_device *dev)
 	retval = dma_set_coherent_mask(&dev->dev, DMA_BIT_MASK(32));
 	if (retval) {
 		dev_err(&dev->dev, "can't set coherent DMA mask: %d\n", retval);
-		return retval;
+		goto exit;
 	}
 
 	hsotg->regs = devm_platform_get_and_ioremap_resource(dev, 0, &res);
-	if (IS_ERR(hsotg->regs))
-		return PTR_ERR(hsotg->regs);
+	if (IS_ERR(hsotg->regs)) {
+		retval = PTR_ERR(hsotg->regs);
+		goto exit;
+	}
 
 	dev_dbg(&dev->dev, "mapped PA %08lx to VA %p\n",
 		(unsigned long)res->start, hsotg->regs);
 
 	retval = dwc2_lowlevel_hw_init(hsotg);
 	if (retval)
-		return retval;
+		goto exit;
 
 	spin_lock_init(&hsotg->lock);
 
 	hsotg->irq = platform_get_irq(dev, 0);
-	if (hsotg->irq < 0)
-		return hsotg->irq;
+	if (hsotg->irq < 0) {
+		retval = hsotg->irq;
+		goto exit;
+	}
 
 	dev_dbg(hsotg->dev, "registering common handler for irq%d\n",
 		hsotg->irq);
@@ -451,19 +636,19 @@ static int dwc2_driver_probe(struct platform_device *dev)
 				  dwc2_handle_common_intr, IRQF_SHARED,
 				  dev_name(hsotg->dev), hsotg);
 	if (retval)
-		return retval;
+		goto exit;
 
 	hsotg->vbus_supply = devm_regulator_get_optional(hsotg->dev, "vbus");
 	if (IS_ERR(hsotg->vbus_supply)) {
 		retval = PTR_ERR(hsotg->vbus_supply);
 		hsotg->vbus_supply = NULL;
 		if (retval != -ENODEV)
-			return retval;
+			goto exit;
 	}
 
 	retval = dwc2_lowlevel_hw_enable(hsotg);
 	if (retval)
-		return retval;
+		goto exit;
 
 	hsotg->needs_byte_swap = dwc2_check_core_endianness(hsotg);
 
@@ -507,39 +692,11 @@ static int dwc2_driver_probe(struct platform_device *dev)
 	if (retval)
 		goto error;
 
-	if (hsotg->params.activate_stm_id_vb_detection) {
-		u32 ggpio;
-
-		hsotg->usb33d = devm_regulator_get(hsotg->dev, "usb33d");
-		if (IS_ERR(hsotg->usb33d)) {
-			retval = PTR_ERR(hsotg->usb33d);
-			if (retval != -EPROBE_DEFER)
-				dev_err(hsotg->dev,
-					"failed to request usb33d supply: %d\n",
-					retval);
-			goto error;
-		}
-		retval = regulator_enable(hsotg->usb33d);
-		if (retval) {
-			dev_err(hsotg->dev,
-				"failed to enable usb33d supply: %d\n", retval);
-			goto error;
-		}
-
-		ggpio = dwc2_readl(hsotg, GGPIO);
-		ggpio |= GGPIO_STM32_OTG_GCCFG_IDEN;
-		ggpio |= GGPIO_STM32_OTG_GCCFG_VBDEN;
-		dwc2_writel(hsotg, ggpio, GGPIO);
-
-		/* ID/VBUS detection startup time */
-		usleep_range(5000, 7000);
-	}
-
 	retval = dwc2_drd_init(hsotg);
 	if (retval) {
 		if (retval != -EPROBE_DEFER)
 			dev_err(hsotg->dev, "failed to initialize dual-role\n");
-		goto error_init;
+		goto error;
 	}
 
 	if (hsotg->dr_mode != USB_DR_MODE_HOST) {
@@ -585,8 +742,12 @@ static int dwc2_driver_probe(struct platform_device *dev)
 	if (hsotg->dr_mode == USB_DR_MODE_PERIPHERAL)
 		dwc2_lowlevel_hw_disable(hsotg);
 
+	device_create_file(hsotg->dev, &dev_attr_id_status);
+	device_create_file(hsotg->dev, &dev_attr_dwc2_mode);
+
 #if IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL) || \
 	IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)
+	device_create_file(hsotg->dev, &dev_attr_connected);
 	/* Postponed adding a new gadget to the udc class driver list */
 	if (hsotg->gadget_enabled) {
 		retval = usb_add_gadget_udc(hsotg->dev, &hsotg->gadget);
@@ -602,119 +763,223 @@ static int dwc2_driver_probe(struct platform_device *dev)
 #if IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL) || \
 	IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)
 error_debugfs:
+	device_remove_file(hsotg->dev, &dev_attr_connected);
+	device_remove_file(hsotg->dev, &dev_attr_dwc2_mode);
+	device_remove_file(hsotg->dev, &dev_attr_id_status);
 	dwc2_debugfs_exit(hsotg);
 	if (hsotg->hcd_enabled)
 		dwc2_hcd_remove(hsotg);
 #endif
 error_drd:
 	dwc2_drd_exit(hsotg);
-
-error_init:
-	if (hsotg->params.activate_stm_id_vb_detection)
-		regulator_disable(hsotg->usb33d);
 error:
-	if (hsotg->ll_hw_enabled)
+	if (hsotg->dr_mode != USB_DR_MODE_PERIPHERAL)
 		dwc2_lowlevel_hw_disable(hsotg);
+exit:
 	return retval;
+}
+
+#ifdef CONFIG_USB_DWC2_QUICK_START
+static void dwc2_quick_start_init(struct work_struct *work)
+{
+	struct dwc2_quick_start *quick_start =
+		container_of(work, struct dwc2_quick_start, init_work);
+	struct platform_device *dev = to_platform_device(quick_start->hsotg->dev);
+	int ret;
+
+	mutex_lock(&quick_start->lock);
+	if (quick_start->stopping || quick_start->init_deferred ||
+	    quick_start->init_state != DWC2_QUICK_START_INIT_PENDING) {
+		mutex_unlock(&quick_start->lock);
+		return;
+	}
+	quick_start->init_state = DWC2_QUICK_START_INIT_RUNNING;
+	mutex_unlock(&quick_start->lock);
+
+	ret = dwc2_init(dev, quick_start->hsotg);
+	if (ret) {
+		/* A failed HCD setup may have left USB core's temporary value here. */
+		platform_set_drvdata(dev, NULL);
+		dev_err(&dev->dev, "quick start initialization failed: %d\n", ret);
+	}
+
+	mutex_lock(&quick_start->lock);
+	quick_start->init_state = ret ? DWC2_QUICK_START_INIT_FAILED :
+		DWC2_QUICK_START_INIT_READY;
+	mutex_unlock(&quick_start->lock);
+}
+
+static int dwc2_quick_start_probe(struct platform_device *dev,
+				  struct dwc2_hsotg *hsotg)
+{
+	struct dwc2_quick_start *quick_start;
+
+	quick_start = devres_alloc(dwc2_quick_start_release,
+				   sizeof(*quick_start), GFP_KERNEL);
+	if (!quick_start)
+		return -ENOMEM;
+
+	quick_start->hsotg = hsotg;
+	quick_start->init_state = DWC2_QUICK_START_INIT_PENDING;
+	mutex_init(&quick_start->lock);
+	INIT_WORK(&quick_start->init_work, dwc2_quick_start_init);
+	devres_add(&dev->dev, quick_start);
+
+	schedule_work(&quick_start->init_work);
+
+	return 0;
+}
+#endif
+
+/**
+ * dwc2_driver_probe() - Called when the DWC_otg core is bound to the DWC_otg
+ * driver
+ *
+ * @dev: Platform device
+ *
+ * This routine creates the driver components required to control the device
+ * (core, HCD, and PCD) and initializes the device. The driver components are
+ * stored in a dwc2_hsotg structure. A reference to the dwc2_hsotg is saved
+ * in the device private data. This allows the driver to access the dwc2_hsotg
+ * structure on subsequent calls to driver methods for this device.
+ */
+static int dwc2_driver_probe(struct platform_device *dev)
+{
+	struct dwc2_hsotg *hsotg;
+	int ret;
+
+	hsotg = dwc2_alloc_hsotg(dev);
+	if (IS_ERR(hsotg))
+		return PTR_ERR(hsotg);
+
+#ifdef CONFIG_USB_DWC2_QUICK_START
+	ret = dwc2_quick_start_probe(dev, hsotg);
+#else
+	ret = dwc2_init(dev, hsotg);
+#endif
+	if (ret)
+		platform_set_drvdata(dev, NULL);
+
+	return ret;
 }
 
 static int __maybe_unused dwc2_suspend(struct device *dev)
 {
-	struct dwc2_hsotg *dwc2 = dev_get_drvdata(dev);
-	bool is_device_mode = dwc2_is_device_mode(dwc2);
-	int ret = 0;
+	struct dwc2_hsotg *dwc2 = NULL;
 
-	if (is_device_mode)
-		dwc2_hsotg_suspend(dwc2);
+#ifdef CONFIG_USB_DWC2_QUICK_START
+	struct dwc2_quick_start *quick_start =
+		dwc2_quick_start_get(to_platform_device(dev));
 
-	dwc2_drd_suspend(dwc2);
+	if (!quick_start)
+		return -ENODEV;
+	if (!dwc2_quick_start_suspend(quick_start))
+		return 0;
+	dwc2 = quick_start->hsotg;
+#else
+	dwc2 = dev_get_drvdata(dev);
+#endif
+	if (!dwc2)
+		return -ENODEV;
 
-	if (dwc2->params.activate_stm_id_vb_detection) {
-		unsigned long flags;
-		u32 ggpio, gotgctl;
-
-		/*
-		 * Need to force the mode to the current mode to avoid Mode
-		 * Mismatch Interrupt when ID detection will be disabled.
-		 */
-		dwc2_force_mode(dwc2, !is_device_mode);
-
-		spin_lock_irqsave(&dwc2->lock, flags);
-		gotgctl = dwc2_readl(dwc2, GOTGCTL);
-		/* bypass debounce filter, enable overrides */
-		gotgctl |= GOTGCTL_DBNCE_FLTR_BYPASS;
-		gotgctl |= GOTGCTL_BVALOEN | GOTGCTL_AVALOEN;
-		/* Force A / B session if needed */
-		if (gotgctl & GOTGCTL_ASESVLD)
-			gotgctl |= GOTGCTL_AVALOVAL;
-		if (gotgctl & GOTGCTL_BSESVLD)
-			gotgctl |= GOTGCTL_BVALOVAL;
-		dwc2_writel(dwc2, gotgctl, GOTGCTL);
-		spin_unlock_irqrestore(&dwc2->lock, flags);
-
-		ggpio = dwc2_readl(dwc2, GGPIO);
-		ggpio &= ~GGPIO_STM32_OTG_GCCFG_IDEN;
-		ggpio &= ~GGPIO_STM32_OTG_GCCFG_VBDEN;
-		dwc2_writel(dwc2, ggpio, GGPIO);
-
-		regulator_disable(dwc2->usb33d);
+	if (dwc2->wq_gadget_detect) {
+		dwc2->link_detect = 0;
+		cancel_delayed_work_sync(&dwc2->wf_link_detect);
+		flush_workqueue(dwc2->wq_gadget_detect);
 	}
 
-	if (dwc2->ll_hw_enabled &&
-	    (is_device_mode || dwc2_host_can_poweroff_phy(dwc2))) {
-		ret = __dwc2_lowlevel_hw_disable(dwc2);
-		dwc2->phy_off_for_suspend = true;
+	if (dwc2_is_device_mode(dwc2)) {
+		if (get_gadget_enabled(dwc2)) {
+			u32 speed;
+
+			switch (call_gadget_get_speed(dwc2)) {
+				case USB_SPEED_LOW:
+					speed = HPRT0_SPD_LOW_SPEED;
+					break;
+				case USB_SPEED_FULL:
+					speed = HPRT0_SPD_FULL_SPEED;
+					break;
+				case USB_SPEED_HIGH:
+				default:
+					speed = HPRT0_SPD_HIGH_SPEED;
+					break;
+			}
+
+			usb_phy_set_wakeup(dwc2->uphy, speed + 1);
+
+			if (dwc2->need_phy_for_wake)
+				enable_irq_wake(dwc2->irq);
+
+		} else {
+			dwc2_hsotg_suspend(dwc2);
+
+			if (dwc2->ll_hw_enabled) {
+				__dwc2_lowlevel_hw_disable(dwc2);
+				dwc2->phy_off_for_suspend = true;
+			}
+		}
+	} else {
+		if (get_host_connect_status(dwc2) == 0)
+			dwc2_vbus_supply_exit(dwc2);
+
+		if (dwc2->vbus_supply_enabled) {
+			u32 hprt = dwc2_readl(dwc2, HPRT0);
+			u32 prtspd = (hprt & HPRT0_SPD_MASK) >> HPRT0_SPD_SHIFT;
+			usb_phy_set_wakeup(dwc2->uphy, prtspd + 1);
+
+			if (dwc2->need_phy_for_wake)
+				enable_irq_wake(dwc2->irq);
+		} else {
+			if (dwc2->ll_hw_enabled) {
+				__dwc2_lowlevel_hw_disable(dwc2);
+				dwc2->phy_off_for_suspend = true;
+			}
+		}
 	}
 
-	return ret;
+	return 0;
 }
 
 static int __maybe_unused dwc2_resume(struct device *dev)
 {
-	struct dwc2_hsotg *dwc2 = dev_get_drvdata(dev);
-	int ret = 0;
+	struct dwc2_hsotg *dwc2 = NULL;
 
-	if (dwc2->phy_off_for_suspend && dwc2->ll_hw_enabled) {
-		ret = __dwc2_lowlevel_hw_enable(dwc2);
-		if (ret)
-			return ret;
-	}
-	dwc2->phy_off_for_suspend = false;
+#ifdef CONFIG_USB_DWC2_QUICK_START
+	struct dwc2_quick_start *quick_start =
+		dwc2_quick_start_get(to_platform_device(dev));
 
-	if (dwc2->params.activate_stm_id_vb_detection) {
-		unsigned long flags;
-		u32 ggpio, gotgctl;
+	if (!quick_start)
+		return -ENODEV;
+	if (!dwc2_quick_start_resume(quick_start))
+		return 0;
+	dwc2 = quick_start->hsotg;
+#else
+	dwc2 = dev_get_drvdata(dev);
+#endif
+	if (!dwc2)
+		return -ENODEV;
 
-		ret = regulator_enable(dwc2->usb33d);
-		if (ret)
-			return ret;
+	if (dwc2->phy_off_for_suspend) {
+		dwc2->phy_off_for_suspend = false;
 
-		ggpio = dwc2_readl(dwc2, GGPIO);
-		ggpio |= GGPIO_STM32_OTG_GCCFG_IDEN;
-		ggpio |= GGPIO_STM32_OTG_GCCFG_VBDEN;
-		dwc2_writel(dwc2, ggpio, GGPIO);
+		if (dwc2->ll_hw_enabled)
+			__dwc2_lowlevel_hw_enable(dwc2);
+	} else {
+		if (dwc2->need_phy_for_wake)
+			disable_irq_wake(dwc2->irq);
 
-		/* ID/VBUS detection startup time */
-		usleep_range(5000, 7000);
-
-		spin_lock_irqsave(&dwc2->lock, flags);
-		gotgctl = dwc2_readl(dwc2, GOTGCTL);
-		gotgctl &= ~GOTGCTL_DBNCE_FLTR_BYPASS;
-		gotgctl &= ~(GOTGCTL_BVALOEN | GOTGCTL_AVALOEN |
-			     GOTGCTL_BVALOVAL | GOTGCTL_AVALOVAL);
-		dwc2_writel(dwc2, gotgctl, GOTGCTL);
-		spin_unlock_irqrestore(&dwc2->lock, flags);
+		usb_phy_set_wakeup(dwc2->uphy, false);
 	}
 
-	/* Need to restore FORCEDEVMODE/FORCEHOSTMODE */
-	dwc2_force_dr_mode(dwc2);
+	if (dwc2_is_device_mode(dwc2)) {
+		if (!get_gadget_enabled(dwc2))
+			dwc2_hsotg_resume(dwc2);
+	} else {
+		if (get_host_connect_status(dwc2) == 0)
+			dwc2_vbus_supply_init(dwc2);
+	}
 
-	dwc2_drd_resume(dwc2);
-
-	if (dwc2_is_device_mode(dwc2))
-		ret = dwc2_hsotg_resume(dwc2);
-
-	return ret;
+	return 0;
 }
 
 static const struct dev_pm_ops dwc2_dev_pm_ops = {
@@ -733,7 +998,3 @@ static struct platform_driver dwc2_platform_driver = {
 };
 
 module_platform_driver(dwc2_platform_driver);
-
-MODULE_DESCRIPTION("DESIGNWARE HS OTG Platform Glue");
-MODULE_AUTHOR("Matthijs Kooijman <matthijs@stdin.nl>");
-MODULE_LICENSE("Dual BSD/GPL");

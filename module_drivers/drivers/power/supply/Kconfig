@@ -1,0 +1,9 @@
+
+config INGENIC_ADC_BAT
+	tristate "Ingenic adc battery level monitoring driver"
+	depends on INGENIC_SADC
+	default n
+	help
+		Say Y here to enable battery level measurement for Ingenic platforms.
+		This driver provides battery capacity/voltage readings through SADC interface.
+		If unsure, say N.

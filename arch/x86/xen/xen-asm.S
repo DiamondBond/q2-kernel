@@ -14,13 +14,11 @@
 #include <asm/thread_info.h>
 #include <asm/asm.h>
 #include <asm/frame.h>
-#include <asm/unwind_hints.h>
 
 #include <xen/interface/xen.h>
 
 #include <linux/init.h>
 #include <linux/linkage.h>
-#include <../entry/calling.h>
 
 /*
  * Enable events.  This clears the event mask and tests the pending
@@ -45,7 +43,7 @@ SYM_FUNC_START(xen_irq_enable_direct)
 	call check_events
 1:
 	FRAME_END
-	RET
+	ret
 SYM_FUNC_END(xen_irq_enable_direct)
 
 
@@ -55,7 +53,7 @@ SYM_FUNC_END(xen_irq_enable_direct)
  */
 SYM_FUNC_START(xen_irq_disable_direct)
 	movb $1, PER_CPU_VAR(xen_vcpu_info) + XEN_vcpu_info_mask
-	RET
+	ret
 SYM_FUNC_END(xen_irq_disable_direct)
 
 /*
@@ -71,7 +69,7 @@ SYM_FUNC_START(xen_save_fl_direct)
 	testb $0xff, PER_CPU_VAR(xen_vcpu_info) + XEN_vcpu_info_mask
 	setz %ah
 	addb %ah, %ah
-	RET
+	ret
 SYM_FUNC_END(xen_save_fl_direct)
 
 
@@ -98,7 +96,7 @@ SYM_FUNC_START(xen_restore_fl_direct)
 	call check_events
 1:
 	FRAME_END
-	RET
+	ret
 SYM_FUNC_END(xen_restore_fl_direct)
 
 
@@ -128,7 +126,7 @@ SYM_FUNC_START(check_events)
 	pop %rcx
 	pop %rax
 	FRAME_END
-	RET
+	ret
 SYM_FUNC_END(check_events)
 
 SYM_FUNC_START(xen_read_cr2)
@@ -136,19 +134,18 @@ SYM_FUNC_START(xen_read_cr2)
 	_ASM_MOV PER_CPU_VAR(xen_vcpu), %_ASM_AX
 	_ASM_MOV XEN_vcpu_info_arch_cr2(%_ASM_AX), %_ASM_AX
 	FRAME_END
-	RET
+	ret
 SYM_FUNC_END(xen_read_cr2);
 
 SYM_FUNC_START(xen_read_cr2_direct)
 	FRAME_BEGIN
 	_ASM_MOV PER_CPU_VAR(xen_vcpu_info) + XEN_vcpu_info_arch_cr2, %_ASM_AX
 	FRAME_END
-	RET
+	ret
 SYM_FUNC_END(xen_read_cr2_direct);
 
 .macro xen_pv_trap name
 SYM_CODE_START(xen_\name)
-	UNWIND_HINT_ENTRY
 	pop %rcx
 	pop %r11
 	jmp  \name
@@ -188,7 +185,6 @@ xen_pv_trap asm_exc_xen_hypervisor_callback
 SYM_CODE_START(xen_early_idt_handler_array)
 	i = 0
 	.rept NUM_EXCEPTION_VECTORS
-	UNWIND_HINT_EMPTY
 	pop %rcx
 	pop %r11
 	jmp early_idt_handler_array + i*EARLY_IDT_HANDLER_SIZE
@@ -215,13 +211,11 @@ hypercall_iret = hypercall_page + __HYPERVISOR_iret * 32
  * rsp->rax		}
  */
 SYM_CODE_START(xen_iret)
-	UNWIND_HINT_EMPTY
 	pushq $0
 	jmp hypercall_iret
 SYM_CODE_END(xen_iret)
 
 SYM_CODE_START(xen_sysret64)
-	UNWIND_HINT_EMPTY
 	/*
 	 * We're already on the usermode stack at this point, but
 	 * still with the kernel gs, so we can easily switch back.
@@ -242,25 +236,6 @@ SYM_CODE_START(xen_sysret64)
 SYM_CODE_END(xen_sysret64)
 
 /*
- * XEN pv doesn't use trampoline stack, PER_CPU_VAR(cpu_tss_rw + TSS_sp0) is
- * also the kernel stack.  Reusing swapgs_restore_regs_and_return_to_usermode()
- * in XEN pv would cause %rsp to move up to the top of the kernel stack and
- * leave the IRET frame below %rsp, which is dangerous to be corrupted if #NMI
- * interrupts. And swapgs_restore_regs_and_return_to_usermode() pushing the IRET
- * frame at the same address is useless.
- */
-SYM_CODE_START(xenpv_restore_regs_and_return_to_usermode)
-	UNWIND_HINT_REGS
-	POP_REGS
-
-	/* stackleak_erase() can work safely on the kernel stack. */
-	STACKLEAK_ERASE_NOCLOBBER
-
-	addq	$8, %rsp	/* skip regs->orig_ax */
-	jmp xen_iret
-SYM_CODE_END(xenpv_restore_regs_and_return_to_usermode)
-
-/*
  * Xen handles syscall callbacks much like ordinary exceptions, which
  * means we have:
  * - kernel gs
@@ -276,8 +251,7 @@ SYM_CODE_END(xenpv_restore_regs_and_return_to_usermode)
  */
 
 /* Normal 64-bit system call target */
-SYM_CODE_START(xen_entry_SYSCALL_64)
-	UNWIND_HINT_ENTRY
+SYM_FUNC_START(xen_syscall_target)
 	popq %rcx
 	popq %r11
 
@@ -290,13 +264,12 @@ SYM_CODE_START(xen_entry_SYSCALL_64)
 	movq $__USER_CS, 1*8(%rsp)
 
 	jmp entry_SYSCALL_64_after_hwframe
-SYM_CODE_END(xen_entry_SYSCALL_64)
+SYM_FUNC_END(xen_syscall_target)
 
 #ifdef CONFIG_IA32_EMULATION
 
 /* 32-bit compat syscall target */
-SYM_CODE_START(xen_entry_SYSCALL_compat)
-	UNWIND_HINT_ENTRY
+SYM_FUNC_START(xen_syscall32_target)
 	popq %rcx
 	popq %r11
 
@@ -309,11 +282,10 @@ SYM_CODE_START(xen_entry_SYSCALL_compat)
 	movq $__USER32_CS, 1*8(%rsp)
 
 	jmp entry_SYSCALL_compat_after_hwframe
-SYM_CODE_END(xen_entry_SYSCALL_compat)
+SYM_FUNC_END(xen_syscall32_target)
 
 /* 32-bit compat sysenter target */
-SYM_CODE_START(xen_entry_SYSENTER_compat)
-	UNWIND_HINT_ENTRY
+SYM_FUNC_START(xen_sysenter_target)
 	/*
 	 * NB: Xen is polite and clears TF from EFLAGS for us.  This means
 	 * that we don't need to guard against single step exceptions here.
@@ -330,18 +302,17 @@ SYM_CODE_START(xen_entry_SYSENTER_compat)
 	movq $__USER32_CS, 1*8(%rsp)
 
 	jmp entry_SYSENTER_compat_after_hwframe
-SYM_CODE_END(xen_entry_SYSENTER_compat)
+SYM_FUNC_END(xen_sysenter_target)
 
 #else /* !CONFIG_IA32_EMULATION */
 
-SYM_CODE_START(xen_entry_SYSCALL_compat)
-SYM_CODE_START(xen_entry_SYSENTER_compat)
-	UNWIND_HINT_ENTRY
+SYM_FUNC_START_ALIAS(xen_syscall32_target)
+SYM_FUNC_START(xen_sysenter_target)
 	lea 16(%rsp), %rsp	/* strip %rcx, %r11 */
 	mov $-ENOSYS, %rax
 	pushq $0
 	jmp hypercall_iret
-SYM_CODE_END(xen_entry_SYSENTER_compat)
-SYM_CODE_END(xen_entry_SYSCALL_compat)
+SYM_FUNC_END(xen_sysenter_target)
+SYM_FUNC_END_ALIAS(xen_syscall32_target)
 
 #endif	/* CONFIG_IA32_EMULATION */

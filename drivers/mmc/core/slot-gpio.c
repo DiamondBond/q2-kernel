@@ -6,6 +6,7 @@
  */
 
 #include <linux/err.h>
+#include <linux/gpio.h>
 #include <linux/gpio/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/jiffies.h>
@@ -13,7 +14,7 @@
 #include <linux/mmc/slot-gpio.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-
+#include "../../gpio/gpiolib.h"
 #include "slot-gpio.h"
 
 struct mmc_gpio {
@@ -152,6 +153,51 @@ void mmc_gpio_set_cd_isr(struct mmc_host *host,
 	ctx->cd_gpio_isr = isr;
 }
 EXPORT_SYMBOL(mmc_gpio_set_cd_isr);
+
+/**
+ * mmc_gpio_request_cd - request a gpio for card-detection
+ * @host: mmc host
+ * @gpio: gpio number requested
+ * @debounce: debounce time in microseconds
+ *
+ * As devm_* managed functions are used in mmc_gpio_request_cd(), client
+ * drivers do not need to worry about freeing up memory.
+ *
+ * If GPIO debouncing is desired, set the debounce parameter to a non-zero
+ * value. The caller is responsible for ensuring that the GPIO driver associated
+ * with the GPIO supports debouncing, otherwise an error will be returned.
+ *
+ * Returns zero on success, else an error.
+ */
+int mmc_gpio_request_cd(struct mmc_host *host, unsigned int gpio, unsigned int flags,
+			unsigned int debounce)
+{
+	struct mmc_gpio *ctx = host->slot.handler_priv;
+	int ret;
+
+	ret = devm_gpio_request_one(host->parent, gpio, GPIOF_DIR_IN,
+				    ctx->cd_label);
+	if (ret < 0)
+		/*
+		 * don't bother freeing memory. It might still get used by other
+		 * slot functions, in any case it will be freed, when the device
+		 * is destroyed.
+		 */
+		return ret;
+
+	if (debounce) {
+		ret = gpio_set_debounce(gpio, debounce);
+		if (ret < 0)
+			return ret;
+	}
+
+	ctx->cd_gpio = gpio_to_desc(gpio);
+	if (flags == 0)
+		set_bit(FLAG_ACTIVE_LOW, &ctx->cd_gpio->flags);
+
+	return 0;
+}
+EXPORT_SYMBOL(mmc_gpio_request_cd);
 
 /**
  * mmc_gpiod_request_cd - request a gpio descriptor for card-detection

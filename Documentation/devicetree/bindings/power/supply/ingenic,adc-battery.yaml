@@ -1,0 +1,76 @@
+#based on adc-battery.yaml
+
+#ingenic x2600 adc-battery
+
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/power/supply/ingenic,adc-battery.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ingenic ADC battery
+
+description:
+  Basic battery capacity meter, which only reports basic battery data
+  via ADC channels and optionally indicate that the battery is full by
+  polling a GPIO line.
+
+  The voltage is expected to be measured between the battery terminals
+  and mandatory. The optional current/power channel is expected to
+  monitor the current/power flowing out of the battery. Last but not
+  least the temperature channel is supposed to measure the battery
+  temperature.
+
+allOf:
+  - $ref: power-supply.yaml#
+
+properties:
+  compatible:
+    const: ingenic,adc-battery
+
+  charged-gpios:
+    description:
+      GPIO which signals that the battery is fully charged. The GPIO is
+      often provided by charger ICs, that are not software controllable.
+    maxItems: 1
+
+  io-channels:
+    minItems: 1
+    maxItems: 4
+
+  io-channel-names:
+    minItems: 1
+    items:
+      - const: voltage
+      - enum: [ current, power, temperature ]
+      - enum: [ power, temperature ]
+      - const: temperature
+
+  monitored-battery: true
+
+required:
+  - compatible
+  - io-channels
+  - io-channel-names
+  - monitored-battery
+
+unevaluatedProperties: false
+
+
+
+eixamples:
+
+battery:battery {
+        compatible = "generic-battery";
+        voltage-min-design-microvolt = <3600000>;
+        voltage-max-design-microvolt = <4200000>;
+};
+
+generic-adc-battery{
+    compatible = "adc-battery";
+    status = "okay";
+    io-channels = <&sadc 0>, <&sadc 1>, <&sadc 2>;
+    io-channel-names = "voltage", "current", "temperature";
+    charged-gpios = <&gpe 15 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+
+    monitored-battery = <&battery>;
+};

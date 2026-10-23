@@ -4,6 +4,13 @@
 #
 comment "USB Miscellaneous drivers"
 
+config USB_AOA_HOST_SLOT
+	tristate "Android Open Accessory host slot queue"
+	depends on USB
+	help
+	  Say Y or M here to expose Android Open Accessory bulk endpoints
+	  through a high-throughput mmap-based slot queue.
+
 config USB_EMI62
 	tristate "EMI 6|2m USB Audio interface support"
 	help

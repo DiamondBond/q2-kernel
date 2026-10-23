@@ -1,0 +1,16 @@
+menu "Ingenic device-drivers Configurations"
+
+
+config OUTSIDE_DRIVERS_PATH
+	string
+	default "module_drivers"
+
+source "module_drivers/drivers/Kconfig"
+source "module_drivers/sound/soc/ingenic/Kconfig"
+
+config INGENIC_GLOBAL_INFO
+	bool "The ingenic GLOBAL_INFO"
+	default n
+	help
+		GLOBAL INFO
+endmenu

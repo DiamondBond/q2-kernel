@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/atomic.h>
+#include <linux/dma-mapping.h>
 
 #include "u_uac1_legacy.h"
 
@@ -619,7 +620,8 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			for (i = 0; i < req_count && err == 0; i++) {
 				req = usb_ep_alloc_request(out_ep, GFP_ATOMIC);
 				if (req) {
-					req->buf = kzalloc(req_buf_size,
+					req->buf = kzalloc(ALIGN(req_buf_size,
+							dma_get_cache_alignment()),
 							GFP_ATOMIC);
 					if (req->buf) {
 						req->length = req_buf_size;

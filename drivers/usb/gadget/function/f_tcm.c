@@ -16,6 +16,7 @@
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/storage.h>
+#include <linux/dma-mapping.h>
 #include <scsi/scsi_tcq.h>
 #include <target/target_core_base.h>
 #include <target/target_core_fabric.h>
@@ -213,7 +214,9 @@ static int bot_send_read_response(struct usbg_cmd *cmd)
 	}
 
 	if (!gadget->sg_supported) {
-		cmd->data_buf = kmalloc(se_cmd->data_length, GFP_ATOMIC);
+		cmd->data_buf = kmalloc(ALIGN(se_cmd->data_length,
+					dma_get_cache_alignment()),
+				 GFP_ATOMIC);
 		if (!cmd->data_buf)
 			return -ENOMEM;
 
@@ -257,7 +260,9 @@ static int bot_send_write_request(struct usbg_cmd *cmd)
 	}
 
 	if (!gadget->sg_supported) {
-		cmd->data_buf = kmalloc(se_cmd->data_length, GFP_KERNEL);
+		cmd->data_buf = kmalloc(ALIGN(se_cmd->data_length,
+					dma_get_cache_alignment()),
+				 GFP_KERNEL);
 		if (!cmd->data_buf)
 			return -ENOMEM;
 
@@ -327,7 +332,9 @@ static int bot_prepare_reqs(struct f_uas *fu)
 	fu->bot_status.req->complete = bot_status_complete;
 	fu->bot_status.csw.Signature = cpu_to_le32(US_BULK_CS_SIGN);
 
-	fu->cmd.buf = kmalloc(fu->ep_out->maxpacket, GFP_KERNEL);
+	fu->cmd.buf = kmalloc(ALIGN((unsigned int)fu->ep_out->maxpacket,
+				     dma_get_cache_alignment()),
+			      GFP_KERNEL);
 	if (!fu->cmd.buf)
 		goto err_buf;
 
@@ -515,7 +522,9 @@ static int uasp_prepare_r_request(struct usbg_cmd *cmd)
 	struct uas_stream *stream = cmd->stream;
 
 	if (!gadget->sg_supported) {
-		cmd->data_buf = kmalloc(se_cmd->data_length, GFP_ATOMIC);
+		cmd->data_buf = kmalloc(ALIGN(se_cmd->data_length,
+					dma_get_cache_alignment()),
+				 GFP_ATOMIC);
 		if (!cmd->data_buf)
 			return -ENOMEM;
 
@@ -770,7 +779,9 @@ static int uasp_alloc_cmd(struct f_uas *fu)
 	if (!fu->cmd.req)
 		goto err;
 
-	fu->cmd.buf = kmalloc(fu->ep_cmd->maxpacket, GFP_KERNEL);
+	fu->cmd.buf = kmalloc(ALIGN((unsigned int)fu->ep_cmd->maxpacket,
+				     dma_get_cache_alignment()),
+			      GFP_KERNEL);
 	if (!fu->cmd.buf)
 		goto err_buf;
 
@@ -983,7 +994,9 @@ static int usbg_prepare_w_request(struct usbg_cmd *cmd, struct usb_request *req)
 	struct usb_gadget *gadget = fuas_to_gadget(fu);
 
 	if (!gadget->sg_supported) {
-		cmd->data_buf = kmalloc(se_cmd->data_length, GFP_ATOMIC);
+		cmd->data_buf = kmalloc(ALIGN(se_cmd->data_length,
+					dma_get_cache_alignment()),
+				 GFP_ATOMIC);
 		if (!cmd->data_buf)
 			return -ENOMEM;
 

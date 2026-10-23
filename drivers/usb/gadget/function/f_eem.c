@@ -13,6 +13,7 @@
 #include <linux/etherdevice.h>
 #include <linux/crc32.h>
 #include <linux/slab.h>
+#include <linux/dma-mapping.h>
 
 #include "u_ether.h"
 #include "u_ether_configfs.h"
@@ -457,7 +458,9 @@ static int eem_unwrap(struct gether *port,
 					goto next;
 				}
 
-				req->buf = kmalloc(skb2->len, GFP_KERNEL);
+				req->buf = kmalloc(ALIGN(skb2->len,
+					dma_get_cache_alignment()),
+				 GFP_KERNEL);
 				if (!req->buf) {
 					usb_ep_free_request(ep, req);
 					dev_kfree_skb_any(skb2);

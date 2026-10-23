@@ -1,0 +1,528 @@
+# insmod /lib/modules/5.10.186+/kernel/module_drivers/drivers/net/wireless/seekw
+[2026-05-28 15:20:12] ave_swt6621s/seekwaveplatform_lite/skw_sdio_lite.ko 
+[2026-05-28 15:20:12] [   33.891352] skw_sdio_mmc_scan:[1]
+[2026-05-28 15:20:12] [   33.894861] =========== WLAN placed in NOMAL ON========
+[2026-05-28 15:20:12] [   33.900271] reset 31 wlan power on:1
+[2026-05-28 15:20:12] [   33.948591] mmc1: new high speed SDIO card at address 0001
+[2026-05-28 15:20:12] [   34.122997] [SKWSDIO INFO] skw_sdio_scan_card: sdio_scan_card
+[2026-05-28 15:20:12] [   34.129153] [SKWSDIO INFO] skw_sdio_probe: : func->class=0, vendor=0x1ffe, device=0x6621, func_num=0x0001, clock=50000000 blksize=0x200 max_blkcnt 4096
+[2026-05-28 15:20:12] [   34.144547] [SKWSDIO INFO] skw_sdio_probe: sdio_enable_func ret=0 type 0
+[2026-05-28 15:20:12] [   34.151500] ****host_oob_irq_flags = 1,gpio_wl_host_wake =  -2
+[2026-05-28 15:20:12] [   34.151507] ****wlan_regon_flags = 1,wl_regon =  31
+[2026-05-28 15:20:12] [   34.171069] [SKWSDIO INFO] skw_sdio_probe: enable func1 done
+[2026-05-28 15:20:12] [   34.182721] [SKWSDIO INFO] check_chipid: Chip id:SV6160LITE used SDIO20 
+[2026-05-28 15:20:12] [   34.182731] [SKWSDIO INFO] skw_sdio_probe: SV6160LITE chip
+[2026-05-28 15:20:12] [   34.195904] [SKWSDIO INFO] skw_sdio_probe: removable card detected default
+[2026-05-28 15:20:12] [   34.205021] [SKWSDIO INFO] skw_sdio_bind_btseekwave_driver: alloc LOOPCHECK TX buffer success
+[2026-05-28 15:20:12] [   34.253058] [SKWSDIO INFO] skw_sdio_bind_btseekwave_driver: alloc LOOPCHECK TX buffer success
+[2026-05-28 15:20:12] [   34.261925] [SKWSDIO INFO] skw_sdio_bind_btseekwave_driver: alloc LOOPCHECK TX buffer success
+[2026-05-28 15:20:12] [   34.335666] [SKWBOOT]:seekwave_boot_init: enter chip_id=SV6160LITE
+[2026-05-28 15:20:12] [   34.386636] [SKWBOOT]:skw_ucom_probe:class prt = c27b2cd8, name = btcom
+[2026-05-28 15:20:12] [   34.423726] [SKWLOG]:skw_bt_state_event_init enter  ret=0
+[2026-05-28 15:20:12] [   34.474244] [SKWBOOT_WARN]:no BT_antenna setting
+[2026-05-28 15:20:12] [   34.479061] [SKWBOOT]:seekwave_boot_parse_dt,modem boot setting::=>
+[2026-05-28 15:20:12] [   34.572648] [SKWBOOT]:chipen=31
+[2026-05-28 15:20:12] [   34.576349] [SKWBOOT]:hst_wak_wf=-2
+[2026-05-28 15:20:12] [   34.579970] [SKWBOOT]:wf_wak_hst=-2
+[2026-05-28 15:20:12] [   34.584048] [SKWBOOT]:dma_type=1
+[2026-05-28 15:20:12] [   34.587397] [SKWBOOT]:bt_antenna=0
+[2026-05-28 15:20:12] [   34.590919] [SKWBOOT]:seekwave_boot_parse_dt,chipen=31, gpio_out:-2 gpio_in:-2 ret = 0
+[2026-05-28 15:20:12] [   34.599525] [SKWBOOT]:request_firmware SWT6621S_DRAM_SDIO.bin
+[2026-05-28 15:20:12] [   34.624803] [SKWBOOT]:boot data dram_img_data c4f1ff05
+[2026-05-28 15:20:12] [   34.651319] [SKWBOOT]:request_firmware SWT6621S_IRAM_SDIO.bin
+[2026-05-28 15:20:13] [   34.754911] [SKWBOOT]:boot data iram_img_data 36d9e083
+[2026-05-28 15:20:13] [   34.760246] [SKWBOOT]:request_firmware SWT6621S_NV_SDIO.bin
+[2026-05-28 15:20:13] [   34.767238] [SKWBOOT]:image_size=359608,193544, ret=0
+[2026-05-28 15:20:13] [   34.772496] [SKWBOOT]:skw_boot_init line:1109,the tail_offset ---0x14c, the head_offset --0xf8 ,iram_addr=0x100000,dram_addr=0x20200000,      nv_head_addr:0xc8,nv_tail_addr:0xe8,8
+[2026-05-28 15:20:13] [   34.790233] [SKWBOOT]:skw_boot_init line:1117 analysis the img module
+[2026-05-28 15:20:13] [   34.797131] [SKWBOOT]:skw_boot_init line:1133 dl_addr=0x110000, write_addr=0x110000, index=0x1,data_size=0x5094
+[2026-05-28 15:20:13] [   34.807812] [SKWBOOT]:skw_boot_init line:1133 dl_addr=0x20228000, write_addr=0x20228000, index=0x1,data_size=0x7368
+[2026-05-28 15:20:13] [   34.818854] [SKWBOOT]:skw_boot_init line:1133 dl_addr=0x115400, write_addr=0x115400, index=0x2,data_size=0x2b7c0
+[2026-05-28 15:20:13] [   34.829611] [SKWBOOT]:skw_boot_init line:1133 dl_addr=0x202178f8, write_addr=0x202178f8, index=0x2,data_size=0x2628
+[2026-05-28 15:20:13] [   34.840631] [SKWBOOT]:skw_boot_init line:1133 dl_addr=0x20210000, write_addr=0x20210000, index=0x2,data_size=0x6478
+[2026-05-28 15:20:13] [   34.851651] [SKWBOOT]:skw_boot_init line:1133 dl_addr=0x141000, write_addr=0x141000, index=0x3,data_size=0x16cb8
+[2026-05-28 15:20:13] [   34.862399] [SKWBOOT]:skw_boot_init line:1133 dl_addr=0x20202910, write_addr=0x20202910, index=0x3,data_size=0x2b50
+[2026-05-28 15:20:13] [   34.873421] [SKWBOOT]:skw_boot_init line:1136 bsp_index count:2, bt_index_count=2, wifi_index_count=3 
+[2026-05-28 15:20:13] [   34.883358] [SKWSDIO INFO] skw_sdio_set_dma_type: dma_type=1,adma_rx_enable:1
+[2026-05-28 15:20:13] [   34.890794] [SKWSDIO INFO] skw_sdio_slp_feature_en: no-sleep_support_enable:1 
+[2026-05-28 15:20:13] [   34.898590] [SKWSDIO INFO] skw_sdio_boot_cp: line:1351 dram_dl_size = 193544 iram_dl_size = 359608 iram_dl_addr = 0x100000, dram_dl_addr = 0x20200000
+[2026-05-28 15:20:13] [   34.976453] [SKWSDIO INFO] skw_sdio_boot_cp: line:1381 write the download done flag
+[2026-05-28 15:20:13] [   35.225932] [SKWSDIO INFO] skw_sdio2_handle_packet: LOOPCHECK channel received: trunk_W26.3.3.1-rev40021-rev40010-rev39877 20260114-01:02:18, slp=0
+[2026-05-28 15:20:13] [   35.225932] 
+[2026-05-28 15:20:13] [   35.241202] [SKWSDIO WARN] skw_sdio_gpio_irq_pre_ops:  no support gpio irq!!!
+[2026-05-28 15:20:13] [   35.248983] [SKWSDIO INFO] skw_sdio_chk_cp_gpio_cfg: gpio_in and gpio_out no config
+[2026-05-28 15:20:13] [   35.256985] [SKWSDIO INFO] skw_sdio_bind_WIFI_driver:  wifi_pdata bus_type:0x3 
+[2026-05-28 15:20:13] [   35.265987] [SKWSDIO INFO] skw_sdio_boot_cp: boot cp pass!!
+[2026-05-28 15:20:13] [   35.271774] [SKWSDIO INFO] skw_boot_loader: boot loader ops end!!!
+[2026-05-28 15:20:13] # 
+[2026-05-28 15:20:14] # 
+# insmod /lib/modules/5.10.186+/kernel/module_drivers/drivers/net/wireless/seekw
+[2026-05-28 15:20:25] ave_swt6621s/swt6621s_wifi/swt6621s_wifi.ko 
+[2026-05-28 15:20:26] [   47.947203] [SKWIFI6621S INFO] VERSION: 2.0.260203.9a3a680 (5.10.186+)
+[2026-05-28 15:20:26] [   47.954353] [SKWIFI6621S INFO] skw_drv_probe: chip: 1, MAC: 00:00:00:00:00:00
+[2026-05-28 15:20:26] [   47.962067] [SKWIFI6621S DBG] skw_register_rx_callback: register cmd port: 6, data port bitmap: 0x80
+[2026-05-28 15:20:26] [   47.972431] [SKWIFI6621S DBG] skw_hw_xmit_init: dma: 0
+[2026-05-28 15:20:26] [   47.979699] [SKWIFI6621S DBG] skw_tx_vring_init: size:5126
+[2026-05-28 15:20:26] [   48.003093] [SKWIFI6621S DBG] skw_tx_vring_init: queue_mem:beac4e21
+[2026-05-28 15:20:26] [   48.009619] [SKWIFI6621S DBG] skw_tx_vring_init: size:5126
+[2026-05-28 15:20:26] [   48.025388] [SKWIFI6621S DBG] skw_tx_vring_init: queue_mem:b44bc898
+[2026-05-28 15:20:26] [   48.031957] [SKWSDIO INFO] wifi_service_start: the ---debug---line:2504 
+[2026-05-28 15:20:26] [   48.039309] [SKWBOOT]:skw_start_wifi_service Enter cp_state =0 
+[2026-05-28 15:20:26] [   48.045851] [SKWBOOT]:skw_download_signal_ops line:1004 download data ops done the dl_count=2 
+[2026-05-28 15:20:26] [   48.055089] [SKWSDIO INFO] skw_WIFI_service_start: Enter STARTWIFI cp_state:0
+[2026-05-28 15:20:26] [   48.062487] [SKWSDIO INFO] send_modem_service_command: service = 0 cmd 1
+[2026-05-28 15:20:26] [   48.069874] [SKWSDIO INFO] send_modem_service_command: ret = 0 command 0
+[2026-05-28 15:20:26] [   48.077173] [SKWSDIO INFO] skw_sdio2_handle_packet: LOOPCHECK channel received: WIFIREADY
+[2026-05-28 15:20:26] [   48.085953] [SKWSDIO INFO] skw_sdio_cp_service_ops: -----WIFI SERIVCE START
+[2026-05-28 15:20:26] [   48.093409] [SKWSDIO INFO] skw_boot_loader: boot loader ops end!!!
+[2026-05-28 15:20:26] [   48.099817] [SKWBOOT]:skw_start_wifi_service wifi boot sucessfull
+[2026-05-28 15:20:26] [   48.113245] [SKWIFI6621S DBG] skw_sync_chip_info: efuse mac: f0:68:e3:78:0f:9c, valid
+[2026-05-28 15:20:26] [   48.121365] [SKWIFI6621S DBG] skw_setup_mac_address: addr[0]: f0:68:e3:78:0f:9c
+[2026-05-28 15:20:26] [   48.129285] [SKWIFI6621S DBG] skw_setup_mac_address: addr[1]: f2:68:e3:7a:0f:9c
+[2026-05-28 15:20:26] [   48.137134] [SKWIFI6621S DBG] skw_setup_mac_address: addr[2]: f2:68:e3:7c:0f:9c
+[2026-05-28 15:20:26] [   48.144985] [SKWIFI6621S DBG] skw_setup_mac_address: addr[3]: f2:68:e3:70:0f:9c
+[2026-05-28 15:20:26] [   48.154052] [SKWIFI6621S INFO] skw_calib_download: SWT6621S_SEEKWAVE_R00001.bin, size: 2372
+[2026-05-28 15:20:26] [   48.162715] [SKWIFI6621S DBG] skw_calib_bin_download: bb_file remain: 1860, seq: 0 len: 512 end: 0
+[2026-05-28 15:20:26] [   48.175409] [SKWIFI6621S DBG] skw_calib_bin_download: bb_file remain: 1348, seq: 1 len: 512 end: 0
+[2026-05-28 15:20:26] [   48.186635] [SKWIFI6621S DBG] skw_calib_bin_download: bb_file remain: 836, seq: 2 len: 512 end: 0
+[2026-05-28 15:20:26] [   48.198088] [SKWIFI6621S DBG] skw_calib_bin_download: bb_file remain: 324, seq: 3 len: 512 end: 0
+[2026-05-28 15:20:26] [   48.209511] [SKWIFI6621S DBG] skw_calib_bin_download: bb_file remain: 0, seq: 4 len: 324 end: 1
+[2026-05-28 15:20:26] [   48.274546] [SKWIFI6621S DBG] skw_sync_band_capa: BW capa: 0xf, flags: 0x180
+[2026-05-28 15:20:26] [   48.281858] [SKWIFI6621S INFO] skw_setup_wiphy: 2g_only:0
+[2026-05-28 15:20:26] [   48.281867] [SKWIFI6621S DBG] skw_sync_band_capa: BW capa: 0xf, flags: 0x180
+[2026-05-28 15:20:26] [   48.307203] [SKWIFI6621S INFO] skw_add_iface: STA, inst: 0, mac: f0:68:e3:78:0f:9c, bitmap: 0x1
+[2026-05-28 15:20:26] [   48.333108] [SKWIFI6621S DBG] skw_iface_setup: STA, addr: f0:68:e3:78:0f:9c
+[2026-05-28 15:20:26] [   48.340359] [SKWIFI6621S DBG] skw_cmd_open_dev: STA, inst: 0, mac: f0:68:e3:78:0f:9c, flags: 0x0
+[2026-05-28 15:20:26] [   48.364005] [SKWIFI6621S DBG] skw_add_vif: iface: 0x0, bitmap: 0x1
+[2026-05-28 15:20:26] # 
+[2026-05-28 15:20:27] # 
+[2026-05-28 15:20:28] # 
+[2026-05-28 15:20:28] # 
+# ifconfig -a
+[2026-05-28 15:20:33] lo        Link encap:Local Loopback  
+[2026-05-28 15:20:33]           inet addr:127.0.0.1  Mask:255.0.0.0
+[2026-05-28 15:20:33]           UP LOOPBACK RUNNING  MTU:65536  Metric:1
+[2026-05-28 15:20:33]           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+[2026-05-28 15:20:33]           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+[2026-05-28 15:20:33]           collisions:0 txqueuelen:1000 
+[2026-05-28 15:20:33]           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+[2026-05-28 15:20:33] 
+[2026-05-28 15:20:33] wlan0     Link encap:Ethernet  HWaddr F0:68:E3:78:0F:9C  
+[2026-05-28 15:20:33]           BROADCAST MULTICAST  MTU:1500  Metric:1
+[2026-05-28 15:20:33]           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+[2026-05-28 15:20:33]           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+[2026-05-28 15:20:33]           collisions:0 txqueuelen:1000 
+[2026-05-28 15:20:33]           RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+[2026-05-28 15:20:33] 
+[2026-05-28 15:20:33] # 
+# wifi_up.sh 
+[2026-05-28 15:20:37] [   59.045329] [SKWIFI6621S DBG] wlan0.skw_ndo_open: type: STA, flags: 0x29300
+[2026-05-28 15:20:37] [   59.052575] [SKWIFI6621S DBG] wlan0.skw_ndo_set_rx_mode: mc: 0, uc: 0
+[2026-05-28 15:20:37] [   59.059951] [SKWIFI6621S DBG] wlan0.skw_ndo_set_rx_mode: mc: 1, uc: 0
+[2026-05-28 15:20:37] [   59.068544] [SKWIFI6621S DBG] wlan0.skw_set_power_mgmt: enabled: 0, timeout: -1
+[2026-05-28 15:20:37] udhcpc: started, v1.36.1
+[2026-05-28 15:20:37] [   59.137141] [SKWIFI6621S DBG] wlan0.skw_ndo_set_rx_mode: mc: 1, uc: 0
+[2026-05-28 15:20:37] [   59.164332] [SKWIFI6621S DBG] wlan0.skw_ndo_set_rx_mode: mc: 1, uc: 0
+[2026-05-28 15:20:37] Successfully initialized wpa_supplicant
+[2026-05-28 15:20:37] udhcpc: broadcasting discover
+[2026-05-28 15:20:37] [   59.341283] [SKWIFI6621S DBG] skw_mgmt_frame_register: STA add filter ACTION
+[2026-05-28 15:20:37] [   59.423790] [SKWIFI6621S INFO] skw_regd_notifier: regd: GB, initiator = 1, dfs_region: 0
+[2026-05-28 15:20:37] [   59.432293] [SKWIFI6621S DBG] skw_cmd_set_regdom: 1 @ 13, power: 20, gain: 0, flags: 0x0
+[2026-05-28 15:20:37] [   59.441317] [SKWIFI6621S DBG] skw_cmd_set_regdom: 36 @ 13, power: 23, gain: 0, flags: 0x808
+[2026-05-28 15:20:37] [   59.450408] [SKWIFI6621S DBG] skw_cmd_set_regdom: 52 @ 13, power: 20, gain: 0, flags: 0x818
+[2026-05-28 15:20:37] [   59.459469] [SKWIFI6621S DBG] skw_cmd_set_regdom: 100 @ 45, power: 27, gain: 0, flags: 0x10
+[2026-05-28 15:20:37] [   59.468467] [SKWIFI6621S DBG] skw_cmd_set_regdom: 149 @ 17, power: 23, gain: 0, flags: 0x8
+[2026-05-28 15:20:37] wlan0: CTRL-EVENT-REGDOM-CHANGE init=DRIVER type=COUNTRY alpha2=GB
+[2026-05-28 15:20:37] [   59.522209] [SKWIFI6621S DBG] skw_scan: STA: nr_chan: 38, n_ssids: 1, ie_len: 13
+[2026-05-28 15:20:38] udhcpc: broadcasting discover
+[2026-05-28 15:20:39] udhcpc: broadcasting discover
+[2026-05-28 15:20:40] [   62.293341] [SKWIFI6621S DBG] skw_scan_done: inst: 0, aborted: 0, scan result: 143
+[2026-05-28 15:20:40] [   62.305250] [SKWIFI6621S DBG] wlan0.skw_dump_survey: last idx: 0
+[2026-05-28 15:20:40] wlan0: SME: Trying to authenticate with ce:03:e2:8c:51:0d (SSID=[   62.331430] [SKWIFI6621S INFO] wlan0.skw_auth: bssid: ce:03:e2:8c:51:0d, auth type: 0, state: NONE
+[2026-05-28 15:20:40] 'iq12' freq=2412 MHz)
+[2026-05-28 15:20:40] [   62.345576] [SKWIFI6621S DBG] skw_abort_scan: inst: 0, scanning: 0
+[2026-05-28 15:20:40] [   62.354213] [SKWIFI6621S DBG] skw_parse_center_chn: cc->bw:0 cc->band:0
+[2026-05-28 15:20:40] [   62.363293] [SKWIFI6621S DBG] wlan0.skw_cmd_join: bssid: ce:03:e2:8c:51:0d(idx: 0, ind: 0), chn: 1(1, 0), bw: 0 band: 0
+[2026-05-28 15:20:40] [   62.397763] [SKWIFI6621S DBG] skw_peer_ctx_bind: ctx: 0, bind
+[2026-05-28 15:20:40] [   62.403801] [SKWIFI6621S STATE] inst: 0, STA -> ce:03:e2:8c:51:0d, state: NONE -> AUTHING
+[2026-05-28 15:20:40] udhcpc: broadcasting discover
+[2026-05-28 15:20:40] [   62.525370] [SKWIFI6621S DBG] skw_event_rx_mgmt: AUTH(inst: 0), sa: ce:03:e2:8c:51:0d, chn: 1, band: 0, signal: -5500
+[2026-05-28 15:20:40] [   62.536424] [SKWIFI6621S STATE] inst: 0, STA -> ce:03:e2:8c:51:0d, state: AUTHING -> AUTHED
+[2026-05-28 15:20:40] wlan0: Trying to associate with ce:03:e2:8c:51:0d (SSID='iq12' f[   62.547830] [SKWIFI6621S DBG] wlan0.skw_assoc: bssid: ce:03:e2:8c:51:0d
+[2026-05-28 15:20:40] req=2412 MHz)
+[2026-05-28 15:20:40] [   62.559617] [SKWIFI6621S STATE] inst: 0, STA -> ce:03:e2:8c:51:0d, state: AUTHED -> ASSOCING
+[2026-05-28 15:20:40] [   62.570199] [SKWIFI6621S DBG] skw_event_tx_frame: iface: 0, fc: 0x0, len: 182
+[2026-05-28 15:20:40] [   62.578219] [SKWIFI6621S DBG] skw_event_tx_frame: ht_cap: 2d  1a  2d   1
+[2026-05-28 15:20:40] [   62.599941] [SKWIFI6621S DBG] skw_event_rx_mgmt: ASSOC_RESP(inst: 0), sa: ce:03:e2:8c:51:0d, chn: 1, band: 0, signal: -5500
+[2026-05-28 15:20:40] [   62.611540] [SKWIFI6621S STATE] inst: 0, STA -> ce:03:e2:8c:51:0d, state: ASSOCING -> ASSOCED
+[2026-05-28 15:20:40] [   62.620699] [SKWIFI6621S DBG] skw_iface_set_wmm_capa: aci: 0, aifsn: 2, txop_limit: 47, factor: 0
+[2026-05-28 15:20:40] [   62.630301] [SKWIFI6621S DBG] skw_rx_data_handler: filter: 5, sn: 0, sa: ce:03:e2:8c:51:0d
+[2026-05-28 15:20:40] [   62.639644] [SKWIFI6621S DBG] skw_iface_set_wmm_capa: aci: 1, aifsn: 2, txop_limit: 94, factor: 0
+[2026-05-28 15:20:40] [   62.649163] [SKWIFI6621S DBG] skw_iface_set_wmm_capa: aci: 2, aifsn: 3, txop_limit: 0, factor: 0
+[2026-05-28 15:20:40] [   62.659179] [SKWIFI6621S DBG] skw_iface_set_wmm_capa: aci: 3, aifsn: 7, txop_limit: 0, factor: 0
+[2026-05-28 15:20:41] [   62.681687] [SKWIFI6621S DBG] skw_iface_set_wmm_capa: wmm_acm: 0x0
+[2026-05-28 15:20:41] wlan0: Associated with ce:03:e2:8c:51:0d
+[2026-05-28 15:20:41] [   62.697563] [SKWIFI6621S DBG] wlan0.skw_ndo_xmit: proto: 0x888e, udp filter: 0, 802.3 frame: 0
+[2026-05-28 15:20:41] wlan0: CTRL-EVENT-SUBNET-STATUS-UPDATE status=0
+[2026-05-28 15:20:41] [   62.713183] [SKWIFI6621S DBG] skw_sta_work: inst: 0, state: ASSOCED, retry: 0 jiff: -237300 step_start: -237470 ctx_start: -237460 auth_start: -237610 redo:0 not_first:0
+[2026-05-28 15:20:41] [   62.729236] [SKWIFI6621S DBG] skw_rx_data_handler: filter: 5, sn: 1, sa: ce:03:e2:8c:51:0d
+[2026-05-28 15:20:41] [   62.738296] [SKWIFI6621S DBG] skw_sta_work: state: ASSOCED, connect failed: 0, run again: 0
+[2026-05-28 15:20:41] [   62.750108] [SKWIFI6621S DBG] wlan0.skw_ndo_xmit: proto: 0x888e, udp filter: 0, 802.3 frame: 0
+[2026-05-28 15:20:41] [   62.761322] [SKWIFI6621S DBG] wlan0.skw_add_key: key_idx: 0, cipher: 0xfac04, pairwise: 1, mac: ce:03:e2:8c:51:0d
+[2026-05-28 15:20:41] [   62.773947] [SKWIFI6621S DBG] wlan0.skw_add_key: key_idx: 1, cipher: 0xfac04, pairwise: 0, mac: (null)
+[2026-05-28 15:20:41] wlan0: WPA: Key negotiation completed with ce:03:e2:8c:51:0d [PT[   62.784698] [SKWIFI6621S DBG] wlan0.skw_change_station: STA, mac: ce:03:e2:8c:51:0d, flags_set: 0x2
+[2026-05-28 15:20:41] K=CCMP GTK=CCMP]
+[2026-05-28 15:20:41] wlan0: CTRL-EVENT-CONNECTED - Connection to ce[   62.799674] [SKWIFI6621S STATE] inst: 0, STA -> ce:03:e2:8c:51:0d, state: ASSOCED -> COMPLETED
+[2026-05-28 15:20:41] :03:e2:8c:51:0d completed [id=0 id_str=]
+[2026-05-28 15:20:41] udhcpc: broadcasting discover
+[2026-05-28 15:20:41] [   63.513033] [SKWIFI6621S DBG] wlan0.skw_udp_filter: DHCP, port: 67
+[2026-05-28 15:20:41] [   63.519473] [SKWIFI6621S DBG] wlan0.skw_ndo_xmit: proto: 0x800, udp filter: 1, 802.3 frame: 0
+[2026-05-28 15:20:41] [   63.528393] [SKWIFI6621S DBG] skw_work_process: SKW_WORK_SETUP_TXBA, iface: 0, peer: 0, tid: 0
+[2026-05-28 15:20:41] [   63.548742] [SKWIFI6621S DBG] skw_event_ba_action: ADD_TX_BA, lmac_id :0 peer: 0, tid: 0, status: 0, win start: 0, win size: 64
+[2026-05-28 15:20:41] [   63.560919] [SKWIFI6621S DBG] skw_event_rx_mgmt: ACTION(inst: 0), sa: ce:03:e2:8c:51:0d, chn: 1, band: 0, signal: -5600
+[2026-05-28 15:20:41] [   63.572244] [SKWIFI6621S DBG] skw_rx_data_handler: filter: 75, sn: 2, sa: f0:68:e3:78:0f:9c
+[2026-05-28 15:20:41] [   63.581021] [SKWIFI6621S DBG] skw_rx_data_handler: filter: 11, sn: 0, sa: ce:03:e2:8c:51:0d
+[2026-05-28 15:20:41] udhcpc: broadcasting select for 172.29.135.94, server 172.29.135.64
+[2026-05-28 15:20:41] [   63.613041] [SKWIFI6621S DBG] wlan0.skw_udp_filter: DHCP, port: 67
+[2026-05-28 15:20:41] [   63.619462] [SKWIFI6621S DBG] wlan0.skw_ndo_xmit: proto: 0x800, udp filter: 1, 802.3 frame: 0
+[2026-05-28 15:20:42] [   63.661982] [SKWIFI6621S DBG] skw_event_rx_mgmt: ACTION(inst: 0), sa: ce:03:e2:8c:51:0d, chn: 1, band: 0, signal: -5500
+[2026-05-28 15:20:42] [   63.673526] [SKWIFI6621S DBG] skw_event_ba_action: ADD_RX_BA, lmac_id :0 peer: 0, tid: 0, status: 0, win start: 1, win size: 64
+[2026-05-28 15:20:42] [   63.685562] [SKWIFI6621S DBG] skw_rx_data_handler: filter: 75, sn: 3, sa: f0:68:e3:78:0f:9c
+[2026-05-28 15:20:42] [   63.694266] [SKWIFI6621S DBG] skw_rx_data_handler: filter: 11, sn: 1, sa: ce:03:e2:8c:51:0d
+[2026-05-28 15:20:42] [   63.703647] [SKWIFI6621S DBG] skw_add_tid_rx: peer: 0, tid: 0, ssn: 1, win size: 64
+[2026-05-28 15:20:42] udhcpc: lease of 172.29.135.94 obtained from 172.29.135.64, lease time 3599
+[2026-05-28 15:20:42] [   63.745091] [SKWIFI6621S DBG] skw_ifa4_notifier: action: 1
+[2026-05-28 15:20:42] [   63.750791] [SKWIFI6621S INFO] wlan0.skw_set_ip_to_fw: ip addr: 172.29.135.94
+[2026-05-28 15:20:42] [   63.758867] [SKWIFI6621S DBG] wlan0.skw_ndo_set_rx_mode: mc: 1, uc: 0
+[2026-05-28 15:20:42] [   63.766871] [SKWIFI6621S DBG] skw_ifa4_notifier: action: 2
+[2026-05-28 15:20:42] [   63.774240] [SKWIFI6621S DBG] skw_ifa4_notifier: action: 1
+[2026-05-28 15:20:42] [   63.779939] [SKWIFI6621S INFO] wlan0.skw_set_ip_to_fw: ip addr: 172.29.135.94
+[2026-05-28 15:20:42] [   63.788105] [SKWIFI6621S DBG] wlan0.skw_ndo_set_rx_mode: mc: 1, uc: 0
+[2026-05-28 15:20:42] [   63.796283] [SKWIFI6621S DBG] skw_ifa4_notifier: action: 2
+[2026-05-28 15:20:42] [   63.802849] [SKWIFI6621S DBG] skw_ifa4_notifier: action: 1
+[2026-05-28 15:20:42] [   63.808968] [SKWIFI6621S INFO] wlan0.skw_set_ip_to_fw: ip addr: 172.29.135.94
+[2026-05-28 15:20:42] deleting routers
+[2026-05-28 15:20:42] adding dns 172.29.135.64
+[2026-05-28 15:20:42] # 
+[2026-05-28 15:20:42] # 
+[2026-05-28 15:20:43] # ping www.baidu[   68.863161] [SKWIFI6621S DBG] skw_rx_data_handler: filter: 2, sn: 2, sa: ce:03:e2:8c:51:0d
+[2026-05-28 15:20:47] [   68.972957] [SKWIFI6621S DBG] skw_reorder_timeout: tid: 0, expired sn: 2
+[2026-05-28 15:20:47] .com
+[2026-05-28 15:20:48] PING www.baidu.com (39.156.70.239): 56 data bytes
+[2026-05-28 15:20:48] 64 bytes from 39.156.70.239: seq=0 ttl=50 time=19.744 ms
+[2026-05-28 15:20:49] 64 bytes from 39.156.70.239: seq=1 ttl=50 time=30.832 ms
+[2026-05-28 15:20:50] 64 bytes from 39.156.70.239: seq=2 ttl=50 time=51.014 ms
+[2026-05-28 15:20:51] 64 bytes from 39.156.70.239: seq=3 ttl=50 time=30.189 ms
+[2026-05-28 15:20:52] 64 bytes from 39.156.70.239: seq=4 ttl=50 time=31.198 ms
+[2026-05-28 15:20:53] [   75.139483] [SKWIFI6621S DBG] skw_rx_data_handler: filter: 2, sn: 9, sa: ce:03:e2:8c:51:0d
+[2026-05-28 15:20:53] 64 bytes from 39.156.70.239: seq=5 ttl=50 time=28.289 ms
+[2026-05-28 15:20:54] 64 bytes from 39.156.70.239: seq=6 ttl=50 time=28.094 ms
+[2026-05-28 15:20:55] 64 bytes from 39.156.70.239: seq=7 ttl=50 time=26.117 ms
+[2026-05-28 15:20:55] ^C
+[2026-05-28 15:20:55] --- www.baidu.com ping statistics ---
+[2026-05-28 15:20:55] 8 packets transmitted, 8 packets received, 0% packet loss
+[2026-05-28 15:20:55] round-trip min/avg/max = 19.744/30.684/51.014 ms
+[2026-05-28 15:20:55] # 
+[2026-05-28 15:20:56] # 
+# wifi_down.sh 
+[2026-05-28 15:21:02] killall: udhcpc: no process killed
+[2026-05-28 15:21:02] [   83.809390] [SKWIFI6621S DBG] skw_ifa4_notifier: action: 2
+[2026-05-28 15:21:02] [   83.816051] [SKWIFI6621S INFO] wlan0.skw_cfg80211_deauth: bssid: ce:03:e2:8c:51:0d, reason: 3, tx frame: 1
+[2026-05-28 15:21:02] [   83.826274] [SKWIFI6621S DBG] skw_mgmt_frame_register: STA del filter ACTION
+[2026-05-28 15:21:02] [   83.834677] [SKWIFI6621S DBG] wlan0.skw_sta_leave: bssid: ce:03:e2:8c:51:0d, reason: 3
+[2026-05-28 15:21:02] [   83.843116] [SKWIFI6621S DBG] wlan0.skw_ndo_set_rx_mode: mc: 1, uc: 0
+[2026-05-28 15:21:02] [   83.851165] [SKWIFI6621S STATE] inst: 0, STA -> ce:03:e2:8c:51:0d, state: COMPLETED -> NONE
+[2026-05-28 15:21:02] [   83.864450] [SKWIFI6621S DBG] wlan0.skw_ndo_set_rx_mode: mc: 1, uc: 0
+[2026-05-28 15:21:02] [   83.871196] [SKWIFI6621S DBG] wlan0.skw_unjoin: bssid: ce:03:e2:8c:51:0d, reason: 3
+[2026-05-28 15:21:02] [   83.880856] [SKWIFI6621S DBG] wlan0.skw_cmd_unjoin: bssid: ce:03:e2:8c:51:0d, reason: 3
+[2026-05-28 15:21:02] [   83.893935] [SKWIFI6621S DBG] skw_event_tx_frame: iface: 0, fc: 0xc0, len: 30
+[2026-05-28 15:21:02] [   83.901429] [SKWIFI6621S DBG] skw_lmac_unbind_iface: reset fw credit for mac:0
+[2026-05-28 15:21:02] [   83.901439] [SKWIFI6621S DBG] skw_peer_ctx_bind: ctx: 0, unbind
+[2026-05-28 15:21:02] [   83.943026] [SKWIFI6621S DBG] wlan0.skw_del_key: link: 0, key_idx: 0, pairwise: 0, mac: (null)
+[2026-05-28 15:21:02] [   83.951961] [SKWIFI6621S DBG] wlan0.skw_del_key: link: 0, key_idx: 1, pairwise: 0, mac: (null)
+[2026-05-28 15:21:02] [   83.961240] [SKWIFI6621S DBG] wlan0.skw_del_key: link: 0, key_idx: 2, pairwise: 0, mac: (null)
+[2026-05-28 15:21:02] [   83.970435] [SKWIFI6621S DBG] wlan0.skw_del_key: link: 0, key_idx: 3, pairwise: 0, mac: (null)
+[2026-05-28 15:21:02] [   83.979656] [SKWIFI6621S DBG] wlan0.skw_del_key: link: 0, key_idx: 4, pairwise: 0, mac: (null)
+[2026-05-28 15:21:02] [   83.988821] [SKWIFI6621S DBG] wlan0.skw_del_key: link: 0, key_idx: 5, pairwise: 0, mac: (null)
+[2026-05-28 15:21:02] [   83.997999] [SKWIFI6621S DBG] wlan0.skw_set_qos_map: del qos_map
+[2026-05-28 15:21:02] [   84.004608] [SKWIFI6621S DBG] wlan0.skw_ndo_stop: type: STA
+[2026-05-28 15:21:02] # 
+[2026-05-28 15:21:03] # 
+[2026-05-28 15:21:03] # 
+[2026-05-28 15:21:03] # 
+# wifi_ap_mode_start.sh 
+[2026-05-28 15:21:06] killall: udhcpd: no process killed
+[2026-05-28 15:21:06] killall: hostapd: no process killed
+[2026-05-28 15:21:08] [   89.658872] [SKWIFI6621S DBG] wlan0.skw_ndo_open: type: STA, flags: 0x29300
+[2026-05-28 15:21:08] [   89.666197] [SKWIFI6621S DBG] wlan0.skw_ndo_set_rx_mode: mc: 0, uc: 0
+[2026-05-28 15:21:08] [   89.672928] [SKWIFI6621S DBG] wlan0.skw_ndo_set_rx_mode: mc: 1, uc: 0
+[2026-05-28 15:21:08] [   89.682066] [SKWIFI6621S DBG] wlan0.skw_set_power_mgmt: enabled: 0, timeout: -1
+[2026-05-28 15:21:08] [   89.697644] [SKWIFI6621S DBG] skw_ifa4_notifier: action: 1
+[2026-05-28 15:21:08] [   89.703885] [SKWIFI6621S INFO] wlan0.skw_set_ip_to_fw: ip addr: 192.168.1.1
+[2026-05-28 15:21:08] [   89.714248] [SKWIFI6621S DBG] wlan0.skw_ndo_set_rx_mode: mc: 1, uc: 0
+[2026-05-28 15:21:08] # udhcpd: started, v1.36.1
+[2026-05-28 15:21:08] [   89.830199] [SKWIFI6621S DBG] wlan0.skw_set_qos_map: del qos_map
+[2026-05-28 15:21:08] [   89.836571] [SKWIFI6621S DBG] wlan0.skw_change_intf: inst: 0, STA -> AP, mac: 00:00:00:00:00:00, 4addr: -1, flags: 0x6
+[2026-05-28 15:21:08] [   89.847991] [SKWIFI6621S DBG] skw_iface_teardown: iface id: 0
+[2026-05-28 15:21:08] [   89.854235] [SKWIFI6621S STATE] inst: 0, STA -> 00:00:00:00:00:00, state: NONE -> NONE
+[2026-05-28 15:21:08] [   89.862442] [SKWIFI6621S DBG] skw_cmd_close_dev: dev id: 0
+[2026-05-28 15:21:08] [   89.870304] [SKWIFI6621S DBG] skw_iface_setup: AP, addr: f0:68:e3:78:0f:9c
+[2026-05-28 15:21:08] [   89.877757] [SKWIFI6621S DBG] skw_cmd_open_dev: AP, inst: 0, mac: f0:68:e3:78:0f:9c, flags: 0x0
+[2026-05-28 15:21:08] [   89.897535] [SKWIFI6621S DBG] skw_mgmt_frame_register: AP add filter AUTH
+[2026-05-28 15:21:08] [   89.906711] [SKWIFI6621S DBG] skw_mgmt_frame_register: AP add filter ASSOC_REQ
+[2026-05-28 15:21:08] [   89.916665] [SKWIFI6621S DBG] skw_mgmt_frame_register: AP add filter REASSOC_REQ
+[2026-05-28 15:21:08] [   89.926714] [SKWIFI6621S DBG] skw_mgmt_frame_register: AP add filter DISASSOC
+[2026-05-28 15:21:08] [   89.936526] [SKWIFI6621S DBG] skw_mgmt_frame_register: AP add filter DEAUTH
+[2026-05-28 15:21:08] [   89.946119] [SKWIFI6621S DBG] skw_mgmt_frame_register: AP add filter PROBE_REQ
+[2026-05-28 15:21:08] [   89.957251] [SKWIFI6621S DBG] skw_mgmt_frame_register: AP add filter ACTION
+[2026-05-28 15:21:08] [   89.966693] [SKWIFI6621S ERROR] skw_mgmt_frame_register: add ACTION failed, ret: -3
+[2026-05-28 15:21:08] [   89.992370] [SKWIFI6621S INFO] wlan0.skw_del_station: subtype: 12, reason: 2, mac: (null)
+[2026-05-28 15:21:08] [   90.016787] [SKWIFI6621S INFO] wlan0.skw_cfg80211_start_ap:        * ssid: ingenic
+[2026-05-28 15:21:08] [   90.024703] [SKWIFI6621S INFO] wlan0.skw_cfg80211_start_ap:        * bssid: f0:68:e3:78:0f:9c
+[2026-05-28 15:21:08] [   90.033903] [SKWIFI6621S INFO] wlan0.skw_cfg80211_start_ap:        * channel: 1 band:0 (BW: 0) freq1:2412 freq2:0
+[2026-05-28 15:21:08] [   90.044765] [SKWIFI6621S INFO] wlan0.skw_cfg80211_start_ap:        * auth type: 0
+[2026-05-28 15:21:08] [   90.052520] [SKWIFI6621S INFO] wlan0.skw_cfg80211_start_ap:        * akm_suites: 0
+[2026-05-28 15:21:08] [   90.060683] [SKWIFI6621S DBG] wlan0.skw_sap_set_mib: ht_enable: 0, vht_enable: 0, he_enable: 0
+[2026-05-28 15:21:08] [   90.075625] [SKWIFI6621S DBG] wlan0.skw_change_bss: ap_isolate:0
+[2026-05-28 15:21:08] [   90.083806] [SKWIFI6621S DBG] skw_mgmt_tx: DEAUTH: chan: 1, wait: 0, cookie: 0x1, no_ack: 0, len: 26 total: 26
+[2026-05-28 15:21:08] [   90.095423] [SKWIFI6621S DBG] skw_mlme_ap_tx_status: iface: 0, da: ff:ff:ff:ff:ff:ff, ack: 1, cookie: 1
+[2026-05-28 15:21:08] wlan0: interface state UNINITIALIZED->ENABLED
+[2026-05-28 15:21:08] wlan0: AP-ENABLED 
+[2026-05-28 15:21:12] 
+[2026-05-28 15:21:12] # 
+[2026-05-28 15:21:12] # 
+[2026-05-28 15:21:12] # 
+[2026-05-28 15:21:12] # 
+[2026-05-28 15:21:12] # [   95.577152] [SKWIFI6621S DBG] skw_event_rx_mgmt: AUTH(inst: 0), sa: 26:38:98:7d:b0:3c, chn: 1, band: 0, signal: -5600
+[2026-05-28 15:21:13] [   95.591641] [SKWIFI6621S INFO] wlan0.skw_del_station: subtype: 12, reason: 2, mac: 26:38:98:7d:b0:3c
+[2026-05-28 15:21:13] [   95.601915] [SKWIFI6621S DBG] wlan0.skw_add_station: mac: 26:38:98:7d:b0:3c, flags: 0x0
+[2026-05-28 15:21:13] [   95.611015] [SKWIFI6621S DBG] skw_peer_ctx_bind: ctx: 4, bind
+[2026-05-28 15:21:13] [   95.617324] [SKWIFI6621S STATE] inst: 0, AP -> 26:38:98:7d:b0:3c, state: NONE -> AUTHED
+[2026-05-28 15:21:13] [   95.628644] [SKWIFI6621S DBG] skw_mgmt_tx: AUTH: chan: 1, wait: 0, cookie: 0x2, no_ack: 0, len: 30 total: 30
+[2026-05-28 15:21:13] [   95.640551] [SKWIFI6621S DBG] skw_mlme_ap_tx_status: iface: 0, da: 26:38:98:7d:b0:3c, ack: 1, cookie: 2
+[2026-05-28 15:21:13] [   95.651163] [SKWIFI6621S DBG] skw_event_rx_mgmt: ASSOC_REQ(inst: 0), sa: 26:38:98:7d:b0:3c, chn: 1, band: 0, signal: -5600
+[2026-05-28 15:21:13] [   95.663662] [SKWIFI6621S DBG] wlan0.skw_change_station: AP, mac: 26:38:98:7d:b0:3c, flags_set: 0x0
+[2026-05-28 15:21:13] [   95.675063] [SKWIFI6621S DBG] wlan0.skw_change_beacon: traced
+[2026-05-28 15:21:13] [   95.681693] [SKWIFI6621S DBG] wlan0.skw_change_bss: ap_isolate:0
+[2026-05-28 15:21:14] [   95.688612] [SKWIFI6621S DBG] wlan0.skw_change_station: AP, mac: 26:38:98:7d:b0:3c, flags_set: 0xa0
+[2026-05-28 15:21:14] [   95.698333] [SKWIFI6621S STATE] inst: 0, AP -> 26:38:98:7d:b0:3c, state: AUTHED -> ASSOCED
+[2026-05-28 15:21:14] [   95.707131] [SKWIFI6621S STATE] inst: 0, AP -> 26:38:98:7d:b0:3c, state: ASSOCED -> COMPLETED
+[2026-05-28 15:21:14] [   95.718061] [SKWIFI6621S DBG] skw_mgmt_tx: ASSOC_RESP: chan: 1, wait: 0, cookie: 0x3, no_ack: 0, len: 58 total: 58
+[2026-05-28 15:21:14] [   95.730971] [SKWIFI6621S DBG] skw_mlme_ap_tx_status: iface: 0, da: 26:38:98:7d:b0:3c, ack: 1, cookie: 3
+[2026-05-28 15:21:14] [   95.741646] [SKWIFI6621S DBG] wlan0.skw_change_station: AP, mac: 26:38:98:7d:b0:3c, flags_set: 0x0
+[2026-05-28 15:21:14] [   95.751497] [SKWIFI6621S DBG] wlan0.skw_change_station: AP, mac: 26:38:98:7d:b0:3c, flags_set: 0x2
+[2026-05-28 15:21:14] [   95.761151] [SKWIFI6621S STATE] inst: 0, AP -> 26:38:98:7d:b0:3c, state: COMPLETED -> COMPLETED
+[2026-05-28 15:21:14] [   95.877691] [SKWIFI6621S DBG] skw_rx_data_handler: filter: 11, sn: 1, sa: 26:38:98:7d:b0:3c
+[2026-05-28 15:21:14] udhcpd: sending ACK to 192.168.1.2
+[2026-05-28 15:21:14] [   95.913040] [SKWIFI6621S DBG] wlan0.skw_udp_filter: DHCP, port: 68
+[2026-05-28 15:21:14] [   95.919461] [SKWIFI6621S DBG] wlan0.skw_ndo_xmit: proto: 0x800, udp filter: 1, 802.3 frame: 0
+[2026-05-28 15:21:14] [   96.094356] [SKWIFI6621S DBG] skw_rx_data_handler: filter: 2, sn: 3, sa: 26:38:98:7d:b0:3c
+[2026-05-28 15:21:14] [   96.107561] [SKWIFI6621S DBG] skw_rx_data_handler: filter: 2, sn: 4, sa: 26:38:98:7d:b0:3c
+[2026-05-28 15:21:14] [   96.116737] [SKWIFI6621S DBG] skw_work_process: SKW_WORK_SETUP_TXBA, iface: 0, peer: 4, tid: 0
+[2026-05-28 15:21:14] [   96.599701] [SKWIFI6621S DBG] skw_rx_data_handler: filter: 2, sn: 5, sa: 26:38:98:7d:b0:3c
+[2026-05-28 15:21:14] [   96.612533] [SKWIFI6621S DBG] skw_rx_data_handler: filter: 2, sn: 7, sa: 26:38:98:7d:b0:3c
+[2026-05-28 15:21:19] 
+[2026-05-28 15:21:19] # 
+# ping 192.168.1.2
+[2026-05-28 15:21:23] PING 192.168.1.2 (192.168.1.2): 56 data bytes
+[2026-05-28 15:21:23] [  104.930287] [SKWIFI6621S DBG] skw_rx_data_handler: filter: 2, sn: 14, sa: 26:38:98:7d:b0:3c
+[2026-05-28 15:21:23] [  104.946257] [SKWIFI6621S DBG] skw_rx_data_handler: filter: 2, sn: 15, sa: 26:38:98:7d:b0:3c
+[2026-05-28 15:21:23] 64 bytes from 192.168.1.2: seq=0 ttl=64 time=212.432 ms
+[2026-05-28 15:21:24] 64 bytes from 192.168.1.2: seq=1 ttl=64 time=106.086 ms
+[2026-05-28 15:21:25] 64 bytes from 192.168.1.2: seq=2 ttl=64 time=24.778 ms
+[2026-05-28 15:21:26] 64 bytes from 192.168.1.2: seq=3 ttl=64 time=48.909 ms
+[2026-05-28 15:21:27] 64 bytes from 192.168.1.2: seq=4 ttl=64 time=73.244 ms
+[2026-05-28 15:21:28] 64 bytes from 192.168.1.2: seq=5 ttl=64 time=94.861 ms
+[2026-05-28 15:21:29] 64 bytes from 192.168.1.2: seq=6 ttl=64 time=133.366 ms
+[2026-05-28 15:21:30] 64 bytes from 192.168.1.2: seq=7 ttl=64 time=41.031 ms
+[2026-05-28 15:21:31] 64 bytes from 192.168.1.2: seq=8 ttl=64 time=57.628 ms
+[2026-05-28 15:21:31] ^C
+[2026-05-28 15:21:31] --- 192.168.1.2 ping statistics ---
+[2026-05-28 15:21:31] 9 packets transmitted, 9 packets received, 0% packet loss
+[2026-05-28 15:21:31] round-trip min/avg/max = 24.778/88.037/212.432 ms
+[2026-05-28 15:21:31] # 
+[2026-05-28 15:21:31] # 
+# insmod /lib/modules/5.10.186+/kernel/module_drivers/drivers/net/wireless/seekw
+[2026-05-28 15:21:37] ave_swt6621s/swtbt4l/skwbt.ko 
+[2026-05-28 15:21:38] [  119.997325] [SKWBT_INFO] Seekwave Bluetooth driver ver 0.1
+[2026-05-28 15:21:38] [  120.003284] [SKWBT_INFO] btseekwave_probe pdev name LOOPCHECK
+[2026-05-28 15:21:38] [  120.011259] [SKWBT_INFO] btseekwave_open enter...
+[2026-05-28 15:21:38] [  120.011279] [SKWBT_INFO] btseekwave_open, cmd_port:2, mode data_port:5, audio_port:3
+[2026-05-28 15:21:38] [  120.024799] [SKWSDIO INFO] open_sdio_port: kworker/u3:2(863) open_sdio_port portno = 2
+[2026-05-28 15:21:38] [  120.033226] [SKWSDIO INFO] open_sdio_port: kworker/u3:2(863) open_sdio_port portno = 5
+[2026-05-28 15:21:38] [  120.041432] [SKWSDIO INFO] open_sdio_port: kworker/u3:2(863) open_sdio_port portno = 3
+[2026-05-28 15:21:38] [  120.050017] [SKWBOOT]:skw_start_bt_service Enter cp_state =0 
+[2026-05-28 15:21:38] [  120.056211] [SKWBOOT]:skw_download_signal_ops line:1004 download data ops done the dl_count=3 
+[2026-05-28 15:21:38] [  120.065387] [SKWSDIO INFO] skw_BT_service_start: Enter cpstate=0
+[2026-05-28 15:21:38] [  120.071614] [SKWSDIO INFO] send_modem_service_command: service = 1 cmd 4
+[2026-05-28 15:21:38] [  120.078908] [SKWSDIO INFO] send_modem_service_command: ret = 0 command 0
+[2026-05-28 15:21:38] [  120.086203] [SKWSDIO INFO] skw_sdio2_handle_packet: LOOPCHECK channel received: BTREADY
+[2026-05-28 15:21:38] [  120.094677] [SKWSDIO INFO] skw_boot_loader: boot loader ops end!!!
+[2026-05-28 15:21:38] [  120.101087] [SKWBOOT]:skw_start_bt_service line:1349 , boot bt sucessfully!
+[2026-05-28 15:21:38] [  120.108730] [SKWBT_INFO] btseekwave_download_nv
+[2026-05-28 15:21:38] [  120.108877] [SKWBT_INFO] Seekwave Bluetooth Log init
+[2026-05-28 15:21:38] [  120.114094] [SKWBT_INFO] btseekwave_rx_complete, chip version:0x5302
+[2026-05-28 15:21:38] [  120.119251] [SKWBT_INFO] init cmd response: 0x100101 
+[2026-05-28 15:21:38] [  120.132213] [SKWBT_INFO] btseekwave_download_nv log_disable from NV:1, skwbt_log_disable:1
+[2026-05-28 15:21:38] [  120.134821] [SKWBT_INFO] init cmd response: 0xfc8001 
+[2026-05-28 15:21:38] [  120.148741] [SKWBT_INFO] btseekwave_setup
+[2026-05-28 15:21:38] # 
+[2026-05-28 15:21:39] # 
+[2026-05-28 15:21:39] # [  120.164941] [SKWBT_INFO] skwbt_log_port_set_pdata, pdata:b832b0eb, skwbt_log_port_info:6593a917
+[2026-05-28 15:21:40] [  122.253001] [SKWBT_INFO] hci0
+[2026-05-28 15:21:40] [  122.262031] [SKWBT_INFO] btseekwave_close enter...
+[2026-05-28 15:21:40] [  122.270542] [SKWSDIO INFO] bt_service_stop: the ---debug---line:2482 
+[2026-05-28 15:21:40] [  122.277427] [SKWBOOT]:skw_stop_bt_service Enter cp_state =0 
+[2026-05-28 15:21:40] [  122.283551] [SKWSDIO INFO] skw_BT_service_stop: Enter cpstate=0
+[2026-05-28 15:21:40] [  122.289690] [SKWSDIO INFO] send_modem_service_command: service = 1 cmd 8
+[2026-05-28 15:21:40] [  122.297057] [SKWSDIO INFO] send_modem_service_command: ret = 0 command 1
+[2026-05-28 15:21:40] [  122.304269] [SKWSDIO INFO] close_sdio_port: kworker/u3:2(state=1) portno = 2
+[2026-05-28 15:21:40] [  122.311579] [SKWSDIO INFO] close_sdio_port: kworker/u3:2(state=1) portno = 3
+[2026-05-28 15:21:40] [  122.319208] [SKWSDIO INFO] close_sdio_port: kworker/u3:2(state=0) portno = 4
+[2026-05-28 15:21:40] [  122.326789] [SKWSDIO INFO] close_sdio_port: kworker/u3:2(state=1) portno = 5
+[2026-05-28 15:21:40] [  122.334316] [SKWSDIO INFO] skw_boot_loader: boot loader ops end!!!
+[2026-05-28 15:21:40] [  122.340722] [SKWBOOT]:seekwave boot stop done:skw_stop_bt_service
+[2026-05-28 15:21:40] [  122.347330] [SKWSDIO INFO] close_sdio_port: kworker/u3:2(state=2) portno = 2
+[2026-05-28 15:21:40] [  122.354851] [SKWSDIO INFO] close_sdio_port: kworker/u3:2(state=2) portno = 5
+[2026-05-28 15:21:40] [  122.362157] [SKWSDIO INFO] close_sdio_port: kworker/u3:2(state=2) portno = 3
+[2026-05-28 15:21:43] 
+[2026-05-28 15:21:43] # 
+[2026-05-28 15:21:43] # 
+[2026-05-28 15:21:43] # [  122.369757] [SKWBT_INFO] func btseekwave_close, atomic_read:0
+[2026-05-28 15:21:44] [  125.816709] [SKWIFI6621S DBG] skw_event_rx_mgmt: ACTION(inst: 0), sa: 26:38:98:7d:b0:3c, chn: 1, band: 0, signal: -6300
+[2026-05-28 15:21:44] [  125.834225] [SKWIFI6621S DBG] skw_mgmt_tx: ACTION: chan: 1, wait: 0, cookie: 0x4, no_ack: 0, len: 28 total: 28
+[2026-05-28 15:21:44] [  125.846471] [SKWIFI6621S DBG] skw_mlme_ap_tx_status: iface: 0, da: 26:38:98:7d:b0:3c, ack: 1, cookie: 4
+[2026-05-28 15:21:48] 
+[2026-05-28 15:21:48] # 
+# hciconfig hci0 up
+[2026-05-28 15:21:58] [  140.474193] [SKWBT_INFO] btseekwave_open enter...
+[2026-05-28 15:21:58] [  140.474213] [SKWBT_INFO] btseekwave_open, cmd_port:2, mode data_port:5, audio_port:3
+[2026-05-28 15:21:58] [  140.487573] [SKWSDIO INFO] open_sdio_port: hciconfig(914) open_sdio_port portno = 2
+[2026-05-28 15:21:58] [  140.495846] [SKWSDIO INFO] open_sdio_port: hciconfig(914) open_sdio_port portno = 5
+[2026-05-28 15:21:58] [  140.504049] [SKWSDIO INFO] open_sdio_port: hciconfig(914) open_sdio_port portno = 3
+[2026-05-28 15:21:58] [  140.511985] [SKWBOOT]:skw_start_bt_service Enter cp_state =0 
+[2026-05-28 15:21:58] [  140.518259] [SKWBOOT]:skw_download_signal_ops line:1004 download data ops done the dl_count=4 
+[2026-05-28 15:21:58] [  140.527401] [SKWSDIO INFO] skw_BT_service_start: Enter cpstate=0
+[2026-05-28 15:21:58] [  140.533867] [SKWSDIO INFO] send_modem_service_command: service = 1 cmd 4
+[2026-05-28 15:21:58] [  140.540894] [SKWSDIO INFO] send_modem_service_command: ret = 0 command 0
+[2026-05-28 15:21:58] [  140.548157] [SKWSDIO INFO] skw_sdio2_handle_packet: LOOPCHECK channel received: BTREADY
+[2026-05-28 15:21:58] [  140.556795] [SKWSDIO INFO] skw_boot_loader: boot loader ops end!!!
+[2026-05-28 15:21:58] [  140.563450] [SKWBOOT]:skw_start_bt_service line:1349 , boot bt sucessfully!
+[2026-05-28 15:21:58] [  140.570662] [SKWBT_INFO] btseekwave_download_nv
+[2026-05-28 15:21:58] [  140.571837] [SKWBT_INFO] btseekwave_rx_complete, chip version:0x5302
+[2026-05-28 15:21:58] [  140.576596] [SKWBT_INFO] init cmd response: 0x100101 
+[2026-05-28 15:21:58] [  140.588947] [SKWBT_INFO] btseekwave_download_nv log_disable from NV:1, skwbt_log_disable:1
+[2026-05-28 15:21:58] [  140.592162] [SKWBT_INFO] init cmd response: 0xfc8001 
+[2026-05-28 15:21:58] # 
+# hciconfig -a
+[2026-05-28 15:28:00] hci0:     Type: Primary  Bus: SDIO
+[2026-05-28 15:28:00]   BD Address: F0:68:E3:78:0F:9D  ACL MTU: 1021:6  SCO MTU: 255:4
+[2026-05-28 15:28:00]   UP RUNNING PSCAN
+[2026-05-28 15:28:00]   RX bytes:0 acl:0 sco:0 events:93 errors:0
+[2026-05-28 15:28:00]   TX bytes:1359 acl:0 sco:0 commands:97 errors:0
+[2026-05-28 15:28:00]   Features: 0xbf 0xee 0x0d 0xfe 0xdb 0xfd 0x7b 0x87
+[2026-05-28 15:28:00]   Packet type: DM1 DM3 DM5 DH1 DH3 DH5 HV1 HV3
+[2026-05-28 15:28:00]   Link policy: RSWITCH SNIFF
+[2026-05-28 15:28:00]   Link mode: PERIPHERAL ACCEPT
+[2026-05-28 15:28:00]   Name: 'BlueZ 5.68'
+[2026-05-28 15:28:00]   Class: 0x000000
+[2026-05-28 15:28:00]   Service Classes: Unspecified
+[2026-05-28 15:28:00]   Device Class: Miscellaneous,
+[2026-05-28 15:28:00]   HCI Version:  (0xd)  Revision: 0x5302
+[2026-05-28 15:28:00]   LMP Version:  (0xd)  Subversion: 0xd
+[2026-05-28 15:28:00]   Manufacturer: not assigned (3149)
+[2026-05-28 15:28:00]
+[2026-05-28 15:28:00] #
+
+# bluetoothctl
+Agent registered
+[CHG] Controller F0:68:E3:78:0F:9D Pairable: yes
+[bluetooth]# show
+[2026-05-28 15:35:21] Controller F0:68:E3:78:0F:9D (public)
+[2026-05-28 15:35:21]   Name: BlueZ 5.68
+[2026-05-28 15:35:21]   Alias: BlueZ 5.68
+[2026-05-28 15:35:21]   Class: 0x00000000 (0)
+[2026-05-28 15:35:21]   Powered: no
+[2026-05-28 15:35:21]   Discoverable: no
+[2026-05-28 15:35:21]   DiscoverableTimeout: 0x000000b4 (180)
+[2026-05-28 15:35:21]   Pairable: yes
+[2026-05-28 15:35:21]   UUID: Generic Attribute Profile (00001801-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:35:21]   UUID: Generic Access Profile    (00001800-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:35:21]   UUID: PnP Information           (00001200-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:35:21]   UUID: Device Information        (0000180a-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:35:21]   Modalias: usb:v1D6Bp0246d0544
+[2026-05-28 15:35:21]   Discovering: no
+[2026-05-28 15:35:21]   Roles: central
+[2026-05-28 15:35:21]   Roles: peripheral
+[2026-05-28 15:35:21] Advertising Features:
+[2026-05-28 15:35:21]   ActiveInstances: 0x00 (0)
+[2026-05-28 15:35:21]   SupportedInstances: 0x04 (4)
+[2026-05-28 15:35:21]   SupportedIncludes: tx-power
+[2026-05-28 15:35:21]   SupportedIncludes: appearance
+[2026-05-28 15:35:21]   SupportedIncludes: local-name
+[2026-05-28 15:35:21]   SupportedSecondaryChannels: 1M
+[2026-05-28 15:35:21]   SupportedSecondaryChannels: 2M
+[2026-05-28 15:35:21]   SupportedSecondaryChannels: Coded
+[2026-05-28 15:35:21] [bluetooth]# power on
+[2026-05-28 15:35:24] [   55.005927] [SKWBT_INFO] func btseekwave_close, atomic_read:0
+[2026-05-28 15:35:24] [   86.176514] [SKWBT_INFO] btseekwave_open enter...
+[2026-05-28 15:35:24] [   86.182485] [SKWBT_INFO] btseekwave_open, cmd_port:2, mode data_port:5, audio_port:3
+[2026-05-28 15:35:24] [   86.195990] [SKWSDIO INFO] open_sdio_port: kworker/u3:0(483) open_sdio_port portno = 2
+[2026-05-28 15:35:24] [   86.204530] [SKWSDIO INFO] open_sdio_port: kworker/u3:0(483) open_sdio_port portno = 5
+[2026-05-28 15:35:24] [   86.212740] [SKWSDIO INFO] open_sdio_port: kworker/u3:0(483) open_sdio_port portno = 3
+[2026-05-28 15:35:24] [   86.221262] [SKWBOOT]:skw_start_bt_service Enter cp_state =0
+[2026-05-28 15:35:24] [   86.227462] [SKWBOOT]:skw_download_signal_ops line:1004 download data ops done the dl_count=3
+[2026-05-28 15:35:24] [   86.236605] [SKWSDIO INFO] skw_BT_service_start: Enter cpstate=0
+[2026-05-28 15:35:24] [   86.242833] [SKWSDIO INFO] send_modem_service_command: service = 1 cmd 4
+[2026-05-28 15:35:24] [   86.250147] [SKWSDIO INFO] send_modem_service_command: ret = 0 command 0
+[2026-05-28 15:35:24] [bluetooth]# [   86.259713] [SKWSDIO INFO] skw_sdio2_handle_packet: LOOPCHECK channel received: BTREADY
+[2026-05-28 15:35:24] [   86.268513] [SKWSDIO INFO] skw_boot_loader: boot loader ops end!!!
+[2026-05-28 15:35:24] [   86.274999] [SKWBOOT]:skw_start_bt_service line:1349 , boot bt sucessfully!
+[2026-05-28 15:35:24] [   86.282208] [SKWBT_INFO] btseekwave_download_nv
+[2026-05-28 15:35:24] [   86.283277] [SKWBT_INFO] btseekwave_rx_complete, chip version:0x5302
+[2026-05-28 15:35:24] [   86.288035] [SKWBT_INFO] init cmd response: 0x100101
+[2026-05-28 15:35:24] [   86.300478] [SKWBT_INFO] btseekwave_download_nv log_disable from NV:1, skwbt_log_disable:1
+[2026-05-28 15:35:24] [   86.304341] [SKWBT_INFO] init cmd response: 0xfc8001
+Changing power on succeeded
+[CHG] Controller F0:68:E3:78:0F:9D Powered: yes
+[bluetooth]# pairable on
+Changing pairable on succeeded
+[2026-05-28 15:36:01] [bluetooth]# discoverable on
+Changing discoverable on succeeded
+[CHG] Controller F0:68:E3:78:0F:9D Discoverable: yes
+[CHG] Device 88:54:8E:7A:3F:62 Connected: yes
+Request confirmation
+[agent] Confirm passkey 927527 (yes/no): yesQOO 12]#
+[��小��台��阿��亮��的iQOO 12]# info
+[2026-05-28 15:36:22] Device 88:54:8E:7A:3F:62 (public)
+[2026-05-28 15:36:22]   Name: ��小��台��阿��亮��的iQOO 12
+[2026-05-28 15:36:22]   Alias: ��小��台��阿��亮��的iQOO 12
+[2026-05-28 15:36:22]   Class: 0x005a020c (5898764)
+[2026-05-28 15:36:22]   Icon: phone
+[2026-05-28 15:36:22]   Paired: yes
+[2026-05-28 15:36:22]   Bonded: yes
+[2026-05-28 15:36:22]   Trusted: no
+[2026-05-28 15:36:22]   Blocked: no
+[2026-05-28 15:36:22]   Connected: yes
+[2026-05-28 15:36:22]   LegacyPairing: no
+[2026-05-28 15:36:22]   UUID: OBEX Object Push          (00001105-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:36:22]   UUID: Audio Source              (0000110a-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:36:22]   UUID: A/V Remote Control Target (0000110c-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:36:22]   UUID: A/V Remote Control        (0000110e-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:36:22]   UUID: Headset AG                (00001112-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:36:22]   UUID: PANU                      (00001115-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:36:22]   UUID: NAP                       (00001116-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:36:22]   UUID: Handsfree Audio Gateway   (0000111f-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:36:22]   UUID: Phonebook Access Server   (0000112f-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:36:22]   UUID: Message Access Server     (00001132-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:36:22]   UUID: PnP Information           (00001200-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:36:22]   UUID: Generic Access Profile    (00001800-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:36:22]   UUID: Generic Attribute Profile (00001801-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:36:22]   UUID: Telephony and Media Audio (00001855-0000-1000-8000-00805f9b34fb)
+[2026-05-28 15:36:22]   UUID: Vendor specific           (2c042b0a-7f57-4c0a-afcf-1762af70257c)
+[2026-05-28 15:36:22]   UUID: Vendor specific           (8fa9c715-bd1f-596c-a1b0-13162b15c892)
+[2026-05-28 15:36:22]   UUID: Vendor specific           (9fed64fd-e91a-499e-88dd-73dfe023feed)
+[2026-05-28 15:36:22]   Modalias: bluetooth:v001Dp0000d0000
+[��小��台��阿��亮��的iQOO 12]#
+
+

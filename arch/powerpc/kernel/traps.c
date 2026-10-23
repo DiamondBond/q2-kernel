@@ -245,7 +245,7 @@ static void oops_end(unsigned long flags, struct pt_regs *regs,
 
 	if (panic_on_oops)
 		panic("Fatal exception");
-	make_task_dead(signr);
+	do_exit(signr);
 }
 NOKPROBE_SYMBOL(oops_end);
 
@@ -509,11 +509,8 @@ out:
 		die("Unrecoverable nested System Reset", regs, SIGABRT);
 #endif
 	/* Must die if the interrupt is not recoverable */
-	if (!(regs->msr & MSR_RI)) {
-		/* For the reason explained in die_mce, nmi_exit before die */
-		nmi_exit();
+	if (!(regs->msr & MSR_RI))
 		die("Unrecoverable System Reset", regs, SIGABRT);
-	}
 
 	if (saved_hsrrs) {
 		mtspr(SPRN_HSRR0, hsrr0);
@@ -1922,40 +1919,11 @@ void vsx_unavailable_tm(struct pt_regs *regs)
 }
 #endif /* CONFIG_PPC_TRANSACTIONAL_MEM */
 
-static void performance_monitor_exception_nmi(struct pt_regs *regs)
-{
-	nmi_enter();
-
-	__this_cpu_inc(irq_stat.pmu_irqs);
-
-	perf_irq(regs);
-
-	nmi_exit();
-}
-
-static void performance_monitor_exception_async(struct pt_regs *regs)
-{
-	irq_enter();
-
-	__this_cpu_inc(irq_stat.pmu_irqs);
-
-	perf_irq(regs);
-
-	irq_exit();
-}
-
 void performance_monitor_exception(struct pt_regs *regs)
 {
-	/*
-	 * On 64-bit, if perf interrupts hit in a local_irq_disable
-	 * (soft-masked) region, we consider them as NMIs. This is required to
-	 * prevent hash faults on user addresses when reading callchains (and
-	 * looks better from an irq tracing perspective).
-	 */
-	if (IS_ENABLED(CONFIG_PPC64) && unlikely(arch_irq_disabled_regs(regs)))
-		performance_monitor_exception_nmi(regs);
-	else
-		performance_monitor_exception_async(regs);
+	__this_cpu_inc(irq_stat.pmu_irqs);
+
+	perf_irq(regs);
 }
 
 #ifdef CONFIG_PPC_ADV_DEBUG_REGS

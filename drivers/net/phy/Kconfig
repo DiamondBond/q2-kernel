@@ -4,7 +4,7 @@
 #
 
 config PHYLINK
-	tristate
+	tristate "PHY Device models link "
 	depends on NETDEVICES
 	select PHYLIB
 	select SWPHY
@@ -259,6 +259,11 @@ config ROCKCHIP_PHY
 	tristate "Rockchip Ethernet PHYs"
 	help
 	  Currently supports the integrated Ethernet PHY.
+
+config RPC8201F_PHY
+	tristate "RPC8201F PHYs"
+	help
+	  Supports the RPC8201F PHY.
 
 config SMSC_PHY
 	tristate "SMSC PHYs"

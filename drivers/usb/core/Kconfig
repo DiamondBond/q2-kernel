@@ -46,6 +46,16 @@ config USB_FEW_INIT_RETRIES
 	  occur within 30 seconds (as might be needed in an embedded
 	  application).
 
+config USB_QUICK_ENUM
+	bool "Limit USB device initialization to only once reset"
+	depends on USB
+	default n
+	help
+	  If you say Y here, the bus enumeration process resets the usb device only once.
+	  Specifically, this will cancel a reset operation before configuring the usb device
+	  address operation to speed up enumeration. Normally, we need to reset the device before
+	  configuring the address.
+
 config USB_DYNAMIC_MINORS
 	bool "Dynamic USB minor allocation"
 	help

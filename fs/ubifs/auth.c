@@ -234,11 +234,16 @@ int ubifs_sb_verify_signature(struct ubifs_info *c,
 
 	err = verify_pkcs7_signature(sup, sizeof(struct ubifs_sb_node),
 				     signode->sig, le32_to_cpu(signode->len),
-				     NULL, VERIFYING_UNSPECIFIED_SIGNATURE,
+#ifdef CONFIG_SECONDARY_TRUSTED_KEYRING
+				     VERIFY_USE_SECONDARY_KEYRING,
+#else
+				     NULL,
+#endif
+				     VERIFYING_UNSPECIFIED_SIGNATURE,
 				     NULL, NULL);
 
 	if (err)
-		ubifs_err(c, "Failed to verify signature");
+		ubifs_err(c, "Failed to verify signature: %d", err);
 	else
 		ubifs_msg(c, "Successfully verified super block signature");
 

@@ -543,6 +543,9 @@ static int __init bootcmdline_scan_chosen(unsigned long node, const char *uname,
 
 #endif /* CONFIG_OF_EARLY_FLATTREE */
 
+/* This marco copy from 4.4.94`. */
+#define USE_PROM_CMDLINE	IS_ENABLED(CONFIG_MIPS_CMDLINE_FROM_BOOTLOADER)
+
 static void __init bootcmdline_init(void)
 {
 	bool dt_bootargs = false;
@@ -567,7 +570,12 @@ static void __init bootcmdline_init(void)
 	if (IS_ENABLED(CONFIG_MIPS_CMDLINE_BUILTIN_EXTEND))
 		strlcpy(boot_command_line, builtin_cmdline, COMMAND_LINE_SIZE);
 	else
-		boot_command_line[0] = 0;
+	{
+		if (!USE_PROM_CMDLINE)
+		{
+			boot_command_line[0] = 0;
+		}
+	}
 
 #ifdef CONFIG_OF_EARLY_FLATTREE
 	/*
@@ -587,7 +595,11 @@ static void __init bootcmdline_init(void)
 	 * the bootloader.
 	 */
 	if (IS_ENABLED(CONFIG_MIPS_CMDLINE_DTB_EXTEND) || !dt_bootargs)
+        {
+                if (arcs_cmdline[0] != 0)
+                    boot_command_line[0] = 0;
 		bootcmdline_append(arcs_cmdline, COMMAND_LINE_SIZE);
+        }
 
 	/*
 	 * If the user specified a built-in command line & we didn't already
@@ -638,7 +650,6 @@ static void __init arch_mem_init(char **cmdline_p)
 	check_kernel_sections_mem();
 
 	early_init_fdt_reserve_self();
-	early_init_fdt_scan_reserved_mem();
 
 #ifndef CONFIG_NUMA
 	memblock_set_node(0, PHYS_ADDR_MAX, &memblock.memory, 0);
@@ -668,6 +679,9 @@ static void __init arch_mem_init(char **cmdline_p)
 		memblock_reserve(crashk_res.start, resource_size(&crashk_res));
 #endif
 	device_tree_init();
+#ifndef CONFIG_NO_FDT_RESERVED_MEM
+	early_init_fdt_scan_reserved_mem();
+#endif
 
 	/*
 	 * In order to reduce the possibility of kernel panic when failed to
@@ -687,7 +701,7 @@ static void __init arch_mem_init(char **cmdline_p)
 	memblock_reserve(__pa_symbol(&__nosave_begin),
 		__pa_symbol(&__nosave_end) - __pa_symbol(&__nosave_begin));
 
-	fdt_init_reserved_mem();
+	//fdt_init_reserved_mem();
 
 	memblock_dump_all();
 

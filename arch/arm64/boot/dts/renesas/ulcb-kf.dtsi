@@ -16,7 +16,6 @@
 	aliases {
 		serial1 = &hscif0;
 		serial2 = &scif1;
-		mmc2 = &sdhi3;
 	};
 
 	clksndsel: clksndsel {

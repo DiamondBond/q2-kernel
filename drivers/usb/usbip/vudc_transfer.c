@@ -10,7 +10,7 @@
  */
 
 #include <linux/usb.h>
-#include <linux/timer.h>
+#include <linux/hrtimer.h>
 #include <linux/usb/ch9.h>
 
 #include "vudc.h"
@@ -299,30 +299,37 @@ top:
 	return sent;
 }
 
-static void v_timer(struct timer_list *t)
+static enum hrtimer_restart v_timer(struct hrtimer *t)
 {
-	struct vudc *udc = from_timer(udc, t, tr_timer.timer);
+	struct vudc *udc = container_of(t, struct vudc, tr_timer.timer);
 	struct transfer_timer *timer = &udc->tr_timer;
 	struct urbp *urb_p, *tmp;
 	unsigned long flags;
 	struct usb_ep *_ep;
 	struct vep *ep;
+	ktime_t now;
 	int ret = 0;
 	int total, limit;
 
 	spin_lock_irqsave(&udc->lock, flags);
 
+	if (timer->state != VUDC_TR_RUNNING) {
+		spin_unlock_irqrestore(&udc->lock, flags);
+		return HRTIMER_NORESTART;
+	}
+
 	total = get_frame_limit(udc->gadget.speed);
 	if (total < 0) {	/* unknown speed, or not set yet */
 		timer->state = VUDC_TR_IDLE;
 		spin_unlock_irqrestore(&udc->lock, flags);
-		return;
+		return HRTIMER_NORESTART;
 	}
 	/* is it next frame now? */
-	if (time_after(jiffies, timer->frame_start + msecs_to_jiffies(1))) {
+	now = ktime_get();
+	if (ktime_compare(now, ktime_add_ms(timer->frame_start, 1)) >= 0) {
 		timer->frame_limit = total;
 		/* FIXME: how to make it accurate? */
-		timer->frame_start = jiffies;
+		timer->frame_start = now;
 	} else {
 		total = timer->frame_limit;
 	}
@@ -394,10 +401,7 @@ restart:
 		limit = total;
 		switch (ep->type) {
 		case USB_ENDPOINT_XFER_ISOC:
-			/* TODO: support */
-			urb->status = -EXDEV;
-			break;
-
+			fallthrough;
 		case USB_ENDPOINT_XFER_INT:
 			/*
 			 * TODO: figure out bandwidth guarantees
@@ -434,11 +438,13 @@ return_urb:
 	/* TODO - also wait on empty usb_request queues? */
 	if (list_empty(&udc->urb_queue))
 		timer->state = VUDC_TR_IDLE;
-	else
-		mod_timer(&timer->timer,
-			  timer->frame_start + msecs_to_jiffies(1));
+	else if (timer->state == VUDC_TR_RUNNING)
+		hrtimer_start(&timer->timer,
+			      ktime_add_ms(timer->frame_start, 1),
+			      HRTIMER_MODE_ABS_SOFT);
 
 	spin_unlock_irqrestore(&udc->lock, flags);
+	return HRTIMER_NORESTART;
 }
 
 /* All timer functions are run with udc->lock held */
@@ -447,7 +453,8 @@ void v_init_timer(struct vudc *udc)
 {
 	struct transfer_timer *t = &udc->tr_timer;
 
-	timer_setup(&t->timer, v_timer, 0);
+	hrtimer_init(&t->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_SOFT);
+	t->timer.function = v_timer;
 	t->state = VUDC_TR_STOPPED;
 }
 
@@ -460,16 +467,16 @@ void v_start_timer(struct vudc *udc)
 	case VUDC_TR_RUNNING:
 		return;
 	case VUDC_TR_IDLE:
-		return v_kick_timer(udc, jiffies);
+		return v_kick_timer(udc);
 	case VUDC_TR_STOPPED:
 		t->state = VUDC_TR_IDLE;
-		t->frame_start = jiffies;
+		t->frame_start = ktime_get();
 		t->frame_limit = get_frame_limit(udc->gadget.speed);
-		return v_kick_timer(udc, jiffies);
+		return v_kick_timer(udc);
 	}
 }
 
-void v_kick_timer(struct vudc *udc, unsigned long time)
+void v_kick_timer(struct vudc *udc)
 {
 	struct transfer_timer *t = &udc->tr_timer;
 
@@ -482,7 +489,8 @@ void v_kick_timer(struct vudc *udc, unsigned long time)
 		fallthrough;
 	case VUDC_TR_STOPPED:
 		/* we may want to kick timer to unqueue urbs */
-		mod_timer(&t->timer, time);
+		hrtimer_start(&t->timer, ns_to_ktime(0),
+			      HRTIMER_MODE_REL_SOFT);
 	}
 }
 
@@ -493,4 +501,5 @@ void v_stop_timer(struct vudc *udc)
 	/* timer itself will take care of stopping */
 	dev_dbg(&udc->pdev->dev, "timer stop");
 	t->state = VUDC_TR_STOPPED;
+	hrtimer_cancel(&t->timer);
 }

@@ -79,7 +79,9 @@ static int v_send_ret_submit(struct vudc *udc, struct urbp *urb_p)
 	int iovnum = 0;
 	int ret = 0;
 	size_t txsize;
+	size_t iso_sum_len = 0;
 	struct msghdr msg;
+	int i;
 
 	txsize = 0;
 	memset(&pdu_header, 0, sizeof(pdu_header));
@@ -109,7 +111,33 @@ static int v_send_ret_submit(struct vudc *udc, struct urbp *urb_p)
 	setup_ret_submit_pdu(&pdu_header, urb_p);
 	usbip_dbg_stub_tx("setup txdata seqnum: %d\n",
 			  pdu_header.base.seqnum);
-	usbip_header_correct_endian(&pdu_header, 1);
+
+	if (urb_p->type == USB_ENDPOINT_XFER_ISOC) {
+		for (i = 0; i < urb->number_of_packets; i++)
+			iso_sum_len += urb->iso_frame_desc[i].actual_length;
+
+		/*
+		 * vudc transfer path updates urb->actual_length but may leave
+		 * per-packet actual_length as 0 for isochronous OUT. Synthesize
+		 * per-packet actual_length so header and iso descriptors remain
+		 * consistent for vhci side checks.
+		 */
+		if (iso_sum_len == 0 && urb->actual_length > 0) {
+			unsigned int remaining = urb->actual_length;
+
+			for (i = 0; i < urb->number_of_packets; i++) {
+				unsigned int pkt_len = urb->iso_frame_desc[i].length;
+				unsigned int pkt_act = min(remaining, pkt_len);
+
+				urb->iso_frame_desc[i].actual_length = pkt_act;
+				remaining -= pkt_act;
+			}
+
+			iso_sum_len = 0;
+			for (i = 0; i < urb->number_of_packets; i++)
+				iso_sum_len += urb->iso_frame_desc[i].actual_length;
+		}
+	}
 
 	iov[iovnum].iov_base = &pdu_header;
 	iov[iovnum].iov_len  = sizeof(pdu_header);
@@ -126,8 +154,6 @@ static int v_send_ret_submit(struct vudc *udc, struct urbp *urb_p)
 	} else if (urb_p->type == USB_ENDPOINT_XFER_ISOC &&
 		usb_pipein(urb->pipe)) {
 		/* FIXME - copypasted from stub_tx, refactor */
-		int i;
-
 		for (i = 0; i < urb->number_of_packets; i++) {
 			iov[iovnum].iov_base = urb->transfer_buffer +
 				urb->iso_frame_desc[i].offset;
@@ -138,12 +164,21 @@ static int v_send_ret_submit(struct vudc *udc, struct urbp *urb_p)
 		}
 
 		if (txsize != sizeof(pdu_header) + urb->actual_length) {
-			usbip_event_add(&udc->ud, VUDC_EVENT_ERROR_TCP);
-			ret = -EPIPE;
-			goto out;
+			iso_sum_len = txsize - sizeof(pdu_header);
+			if (iso_sum_len > urb->transfer_buffer_length) {
+				usbip_event_add(&udc->ud, VUDC_EVENT_ERROR_TCP);
+				ret = -EPIPE;
+				goto out;
+			}
+			pdu_header.u.ret_submit.actual_length = iso_sum_len;
 		}
 	}
 	/* else - no buffer to send */
+
+	if (urb_p->type == USB_ENDPOINT_XFER_ISOC && usb_pipeout(urb->pipe))
+		pdu_header.u.ret_submit.actual_length = iso_sum_len;
+
+	usbip_header_correct_endian(&pdu_header, 1);
 
 	/* 3. setup iso_packet_descriptor */
 	if (urb_p->type == USB_ENDPOINT_XFER_ISOC) {

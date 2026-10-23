@@ -67,6 +67,19 @@ void __cpuidle r4k_wait_irqoff(void)
 	raw_local_irq_enable();
 }
 
+void ingenic_wait_irqoff(void)
+{
+	WARN_ON_ONCE(!raw_irqs_disabled());
+	if (!need_resched())
+		__asm__(
+		"       .set    push            \n"
+		"       .set    arch=r4000      \n"
+		"       sync                    \n"
+		"       wait                    \n"
+		"       .set    pop             \n");
+	raw_local_irq_enable();
+}
+
 /*
  * The RM7000 variant has to handle erratum 38.	 The workaround is to not
  * have any pending stores when the WAIT instruction is executed.
@@ -172,11 +185,14 @@ void __init check_wait(void)
 	case CPU_CAVIUM_OCTEON_PLUS:
 	case CPU_CAVIUM_OCTEON2:
 	case CPU_CAVIUM_OCTEON3:
-	case CPU_XBURST:
 	case CPU_LOONGSON32:
 	case CPU_XLR:
 	case CPU_XLP:
 		cpu_wait = r4k_wait;
+		break;
+	case CPU_XBURST:
+	case CPU_XBURST2:
+		cpu_wait = ingenic_wait_irqoff;
 		break;
 	case CPU_LOONGSON64:
 		if ((c->processor_id & (PRID_IMP_MASK | PRID_REV_MASK)) >=

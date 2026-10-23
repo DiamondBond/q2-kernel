@@ -23,8 +23,6 @@
 	aliases {
 		serial0 = &scif2;
 		ethernet0 = &avb;
-		mmc0 = &sdhi2;
-		mmc1 = &sdhi0;
 	};
 
 	chosen {

@@ -744,7 +744,7 @@ static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
 
 	mutex_unlock(&vrp->endpoints_lock);
 
-	if (ept) {
+    if (ept) {
 		/* make sure ept->cb doesn't go away while we use it */
 		mutex_lock(&ept->cb_lock);
 
@@ -759,7 +759,7 @@ static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
 	} else
 		dev_warn(dev, "msg received with no recipient\n");
 
-	/* publish the real size of the buffer */
+    /* publish the real size of the buffer */
 	rpmsg_sg_init(&sg, msg, vrp->buf_size);
 
 	/* add the buffer back to the remote processor's virtqueue */
@@ -769,7 +769,7 @@ static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
 		return err;
 	}
 
-	return 0;
+    return 0;
 }
 
 /* called when an rx buffer is used, and it's time to digest a message */
@@ -800,8 +800,10 @@ static void rpmsg_recv_done(struct virtqueue *rvq)
 	dev_dbg(dev, "Received %u messages\n", msgs_received);
 
 	/* tell the remote processor we added another available rx buffer */
+#ifdef CONFIG_RPMSG_VIRTIO_NO_NEED_REPLY
 	if (msgs_received)
 		virtqueue_kick(vrp->rvq);
+#endif
 }
 
 /*

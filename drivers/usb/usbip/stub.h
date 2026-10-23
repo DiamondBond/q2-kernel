@@ -12,6 +12,7 @@
 #include <linux/types.h>
 #include <linux/usb.h>
 #include <linux/wait.h>
+#include <linux/atomic.h>
 
 #define STUB_BUSID_OTHER 0
 #define STUB_BUSID_REMOV 1
@@ -45,6 +46,8 @@ struct stub_device {
 	struct list_head unlink_free;
 
 	wait_queue_head_t tx_waitq;
+	wait_queue_head_t inflight_waitq;
+	atomic_long_t inflight_bytes;
 };
 
 /* private data into urb->priv */
@@ -59,6 +62,7 @@ struct stub_priv {
 	int urb_status;
 
 	int unlinking;
+	unsigned long inflight_bytes;
 };
 
 struct stub_unlink {

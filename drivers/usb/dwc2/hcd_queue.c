@@ -3,36 +3,6 @@
  * hcd_queue.c - DesignWare HS OTG Controller host queuing routines
  *
  * Copyright (C) 2004-2013 Synopsys, Inc.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions, and the following disclaimer,
- *    without modification.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. The names of the above-listed copyright holders may not be used
- *    to endorse or promote products derived from this software without
- *    specific prior written permission.
- *
- * ALTERNATIVELY, this software may be distributed under the terms of the
- * GNU General Public License ("GPL") as published by the Free Software
- * Foundation; either version 2 of the License, or (at your option) any
- * later version.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
- * IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
@@ -60,6 +30,264 @@
 
 /* If we get a NAK, wait this long before retrying */
 #define DWC2_RETRY_WAIT_DELAY (1 * NSEC_PER_MSEC)
+
+/*
+ * next_active_frame is the (micro)frame before the transfer should be on the
+ * wire. Re-enable SOF a little early so hrtimer latency still leaves one SOF
+ * for the scheduler to move an inactive QH to ready.
+ */
+#define DWC2_SOF_GATING_GUARD_UFRAMES (2)
+#define DWC2_HS_UFRAME_NSEC	(125 * NSEC_PER_USEC)
+
+static void dwc2_hcd_enable_sof_now(struct dwc2_hsotg *hsotg)
+{
+	u32 gintmsk;
+
+	gintmsk = dwc2_readl(hsotg, GINTMSK);
+	if (!(gintmsk & GINTSTS_SOF)) {
+		gintmsk |= GINTSTS_SOF;
+		dwc2_writel(hsotg, gintmsk, GINTMSK);
+	}
+
+	hsotg->sof_gated = false;
+}
+
+static void dwc2_hcd_enable_sof(struct dwc2_hsotg *hsotg)
+{
+	hrtimer_try_to_cancel(&hsotg->sof_timer);
+	dwc2_hcd_enable_sof_now(hsotg);
+}
+
+static void dwc2_hcd_restore_gated_sof(struct dwc2_hsotg *hsotg)
+{
+	if (!hsotg->sof_gated)
+		return;
+
+	dwc2_hcd_enable_sof(hsotg);
+}
+
+static bool dwc2_hcd_disable_sof(struct dwc2_hsotg *hsotg)
+{
+	u32 gintmsk;
+
+	gintmsk = dwc2_readl(hsotg, GINTMSK);
+	if (!(gintmsk & GINTSTS_SOF))
+		return false;
+
+	gintmsk &= ~GINTSTS_SOF;
+	dwc2_writel(hsotg, gintmsk, GINTMSK);
+
+	return true;
+}
+
+static bool dwc2_hcd_gate_sof(struct dwc2_hsotg *hsotg)
+{
+	if (hsotg->sof_gated)
+		return true;
+
+	if (!dwc2_hcd_disable_sof(hsotg))
+		return false;
+
+	hsotg->sof_gated = true;
+
+	return true;
+}
+
+static bool dwc2_hcd_qh_can_gate_sof(struct dwc2_qh *qh)
+{
+	return qh->ep_type == USB_ENDPOINT_XFER_INT &&
+	       qh->dev_speed == USB_SPEED_HIGH &&
+	       !qh->do_split &&
+	       !qh->schedule_low_speed &&
+	       qh->num_hs_transfers == 1;
+}
+
+static bool dwc2_hcd_sof_gating_hw_ready(struct dwc2_hsotg *hsotg)
+{
+	return hsotg->lx_state == DWC2_L0 &&
+	       !hsotg->bus_suspended &&
+	       !hsotg->in_ppd &&
+	       !hsotg->hibernated;
+}
+
+static bool dwc2_hcd_sof_gating_allowed(struct dwc2_hsotg *hsotg)
+{
+	return !hsotg->sof_gating_disabled &&
+	       dwc2_hcd_sof_gating_hw_ready(hsotg);
+}
+
+/**
+ * dwc2_hcd_maybe_gate_sof() - Disable SOF IRQs until periodic work is due
+ *
+ * This is deliberately conservative: gating is used only when all periodic QHs
+ * are inactive high-speed interrupt endpoints. Isochronous, split, FS/LS,
+ * and already-ready/queued periodic work keep SOF enabled. Descriptor-DMA is
+ * left untouched because this gating helper should not change its SOF state.
+ *
+ * Must be called with interrupt disabled and spinlock held.
+ */
+void dwc2_hcd_maybe_gate_sof(struct dwc2_hsotg *hsotg)
+{
+	struct dwc2_qh *qh;
+	ktime_t delay;
+	u64 delay_ns;
+	u16 earliest = 0;
+	u16 frame_number;
+	u16 delta;
+	bool found = false;
+
+	assert_spin_locked(&hsotg->lock);
+
+	if (hsotg->params.dma_desc_enable)
+		return;
+
+	if (!dwc2_is_host_mode(hsotg)) {
+		hrtimer_try_to_cancel(&hsotg->sof_timer);
+		hsotg->sof_gated = false;
+		return;
+	}
+
+	if (!dwc2_hcd_sof_gating_allowed(hsotg)) {
+		hrtimer_try_to_cancel(&hsotg->sof_timer);
+		hsotg->sof_gated = false;
+		return;
+	}
+
+	if (!hsotg->periodic_qh_count) {
+		hrtimer_try_to_cancel(&hsotg->sof_timer);
+		dwc2_hcd_disable_sof(hsotg);
+		hsotg->sof_gated = false;
+		return;
+	}
+
+	if (!list_empty(&hsotg->periodic_sched_ready) ||
+	    !list_empty(&hsotg->periodic_sched_assigned) ||
+	    !list_empty(&hsotg->periodic_sched_queued)) {
+		dwc2_hcd_restore_gated_sof(hsotg);
+		return;
+	}
+
+	list_for_each_entry(qh, &hsotg->periodic_sched_inactive,
+			    qh_list_entry) {
+		if (!dwc2_hcd_qh_can_gate_sof(qh)) {
+			dwc2_hcd_restore_gated_sof(hsotg);
+			return;
+		}
+
+		if (!found || dwc2_frame_num_gt(earliest,
+						qh->next_active_frame)) {
+			earliest = qh->next_active_frame;
+			found = true;
+		}
+	}
+
+	if (!found) {
+		dwc2_hcd_restore_gated_sof(hsotg);
+		return;
+	}
+
+	frame_number = dwc2_hcd_get_frame_number(hsotg);
+	if (dwc2_frame_num_le(earliest, frame_number)) {
+		dwc2_hcd_restore_gated_sof(hsotg);
+		return;
+	}
+
+	delta = dwc2_frame_num_dec(earliest, frame_number);
+	if (delta <= DWC2_SOF_GATING_GUARD_UFRAMES) {
+		dwc2_hcd_restore_gated_sof(hsotg);
+		return;
+	}
+
+	delay_ns = (u64)(delta - DWC2_SOF_GATING_GUARD_UFRAMES) *
+		   DWC2_HS_UFRAME_NSEC;
+	delay = ns_to_ktime(delay_ns);
+
+	if (!dwc2_hcd_gate_sof(hsotg))
+		return;
+
+	hrtimer_start(&hsotg->sof_timer, delay, HRTIMER_MODE_REL);
+}
+
+static enum hrtimer_restart dwc2_sof_timer_fn(struct hrtimer *t)
+{
+	struct dwc2_hsotg *hsotg = container_of(t, struct dwc2_hsotg,
+					       sof_timer);
+	unsigned long flags;
+
+	spin_lock_irqsave(&hsotg->lock, flags);
+	if (hsotg->sof_gated && dwc2_hcd_sof_gating_allowed(hsotg)) {
+		if (hsotg->periodic_qh_count && dwc2_is_host_mode(hsotg))
+			dwc2_hcd_enable_sof_now(hsotg);
+		else
+			hsotg->sof_gated = false;
+	} else {
+		hsotg->sof_gated = false;
+	}
+	spin_unlock_irqrestore(&hsotg->lock, flags);
+
+	return HRTIMER_NORESTART;
+}
+
+void dwc2_hcd_init_sof_timer(struct dwc2_hsotg *hsotg)
+{
+	hrtimer_init(&hsotg->sof_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	hsotg->sof_timer.function = dwc2_sof_timer_fn;
+	hsotg->sof_gated = false;
+	hsotg->sof_gating_disabled = false;
+}
+
+/*
+ * Freeze the SOF gating optimization for a suspend-like boundary. This only
+ * blocks future gating activity and cancels sof_timer; callers that require
+ * "normal SOF IRQ mode" must restore GINTMSK.SOF separately if needed.
+ */
+void dwc2_hcd_suspend_sof_timer(struct dwc2_hsotg *hsotg)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&hsotg->lock, flags);
+	hsotg->sof_gating_disabled = true;
+	hsotg->sof_gated = false;
+	spin_unlock_irqrestore(&hsotg->lock, flags);
+
+	hrtimer_cancel(&hsotg->sof_timer);
+}
+
+/*
+ * Re-open the SOF gating optimization after the caller has restored a host
+ * context where SOF IRQs are meaningful again. When periodic work exists we
+ * unmask SOF immediately so progress no longer depends on stale timer state.
+ */
+void dwc2_hcd_resume_sof_timer(struct dwc2_hsotg *hsotg)
+{
+	struct usb_hcd *hcd = dwc2_hsotg_to_hcd(hsotg);
+
+	assert_spin_locked(&hsotg->lock);
+
+	if (!hcd || !HCD_HW_ACCESSIBLE(hcd) ||
+	    !dwc2_hcd_sof_gating_hw_ready(hsotg))
+		return;
+
+	hsotg->sof_gating_disabled = false;
+	hsotg->sof_gated = false;
+
+	if (!hsotg->params.dma_desc_enable && hsotg->periodic_qh_count &&
+	    dwc2_is_host_mode(hsotg))
+		dwc2_hcd_enable_sof_now(hsotg);
+}
+
+void dwc2_hcd_cancel_sof_timer(struct dwc2_hsotg *hsotg)
+{
+	unsigned long flags;
+
+	/* Stop teardown races: an in-flight IRQ must not re-arm sof_timer. */
+	spin_lock_irqsave(&hsotg->lock, flags);
+	hsotg->sof_gating_disabled = true;
+	hsotg->sof_gated = false;
+	spin_unlock_irqrestore(&hsotg->lock, flags);
+
+	hrtimer_cancel(&hsotg->sof_timer);
+}
 
 /**
  * dwc2_periodic_channel_available() - Checks that a channel is available for a
@@ -675,7 +903,7 @@ static int dwc2_hs_pmap_schedule(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 }
 
 /**
- * dwc2_ls_pmap_unschedule() - Undo work done by dwc2_hs_pmap_schedule()
+ * dwc2_hs_pmap_unschedule() - Undo work done by dwc2_hs_pmap_schedule()
  *
  * @hsotg:       The HCD state structure for the DWC OTG controller.
  * @qh:          QH for the periodic transfer.
@@ -1108,7 +1336,7 @@ static void dwc2_pick_first_frame(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
 	earliest_frame = dwc2_frame_num_inc(frame_number, 1);
 	next_active_frame = earliest_frame;
 
-	/* Get the "no microframe schduler" out of the way... */
+	/* Get the "no microframe scheduler" out of the way... */
 	if (!hsotg->params.uframe_sched) {
 		if (qh->do_split)
 			/* Splits are active at microframe 0 minus 1 */
@@ -1759,6 +1987,7 @@ int dwc2_hcd_qh_add(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
 		dwc2_writel(hsotg, intr_mask, GINTMSK);
 	}
 	hsotg->periodic_qh_count++;
+	dwc2_hcd_maybe_gate_sof(hsotg);
 
 	return 0;
 }
@@ -1799,6 +2028,7 @@ void dwc2_hcd_qh_unlink(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh)
 		intr_mask &= ~GINTSTS_SOF;
 		dwc2_writel(hsotg, intr_mask, GINTMSK);
 	}
+	dwc2_hcd_maybe_gate_sof(hsotg);
 }
 
 /**
@@ -2030,6 +2260,8 @@ void dwc2_hcd_qh_deactivate(struct dwc2_hsotg *hsotg, struct dwc2_qh *qh,
 	else
 		list_move_tail(&qh->qh_list_entry,
 			       &hsotg->periodic_sched_inactive);
+
+	dwc2_hcd_maybe_gate_sof(hsotg);
 }
 
 /**

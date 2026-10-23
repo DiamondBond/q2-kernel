@@ -1,0 +1,66 @@
+&pinctrl {
+    nemc_data_pin:nemc-data-pin {
+        ingenic,pinmux = <&gpb 20 27>,<&gpb 29 29>;
+		ingenic,pinmux-funcsel = <PINCTL_FUNCTION3>;
+        ingenic,pincfg = <&gpb 20 27 PINCFG_PACK(PINCTL_CFG_BIAS_BUS_HOLD, 0)>,<&gpb 29 29 PINCFG_PACK(PINCTL_CFG_BIAS_BUS_HOLD, 0)>;
+    };
+};
+
+/ {
+
+	display-dbi {
+		compatible = "simple-bus";
+		#interrupt-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <>;
+		panel_st7789p3 {
+			compatible = "ingenic,nemc_st7789p3";
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&nemc_data_pin>;
+            reg = <0x13410000 0x1000>;
+            rot_angle = <270>; // support 0 90 or 270;
+            rst-gpio = <&gpb 2 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+            te-gpio = <&gpb 3 IRQ_TYPE_EDGE_FALLING INGENIC_GPIO_NOBIAS>;
+            rs-gpio = <&gpb 9 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+            cs-gpio = <&gpb 1 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+            dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_AUTO_TX)>;
+		    dma-names = "tx";
+            clocks = <&clock CLK_GATE_NEMC>;
+            clock-names = "gate_nemc";
+	        memory-region=<&reserved_memory>;
+			port {
+				panel_st7789p3_ep: endpoint {
+					   remote-endpoint = <&dpu_out_ep>;
+			   };
+			};
+		};
+	};
+
+
+};
+
+&dpu {
+	status = "okay";
+    	ingenic,disable-rdma-fb = <0>;
+    	ingenic,rot_angle = <0>;
+    	/*Defines the init state of composer fb export infomations.*/
+    	ingenic,layer-exported = <0 1 1 0>;
+    	ingenic,layer-frames   = <3 3 1 2>;
+        ingenic,layer-framesize = <1728 1280>, <1728 1280>, <320 240>, <320 240>;   /*Max framesize for each layer.*/
+    	layer,color_mode        = <4 5 1 0>;                                    /*src fmt,*/
+    	layer,src-size          = <320 240>, <1280 1728>, <320 240>, <320 240>; /*Layer src size should smaller than framesize*/
+    	layer,target-size       = <320 240>, <320 240>, <320 240>, <320 240>;  /*Target Size should smaller than src_size.*/
+    	layer,target-pos        = <0 0>, <0 0>, <0 0>, <0 0>; /*target pos , the start point of the target panel.*/
+    	layer,enable            = <0 1 1 0>;                                    /*layer enabled or disabled.*/
+        layer,zorder            = <1 2 3 0>;
+    	ingenic,logo-pan-layer  = <0>;                                    /*layer enabled or disabled.*/
+        memory-region=<&reserved_memory>;
+    /*on which layer should init logo pan on.*/
+	port {
+		dpu_out_ep: endpoint {
+		remote-endpoint = <&panel_st7789p3_ep>;
+	    };
+	};
+};

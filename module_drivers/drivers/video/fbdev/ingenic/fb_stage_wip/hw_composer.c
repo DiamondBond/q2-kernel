@@ -1,0 +1,221 @@
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/errno.h>
+#include <linux/clk.h>
+#include <linux/mutex.h>
+#include <linux/poll.h>
+#include <linux/wait.h>
+#include <linux/fs.h>
+#include <linux/irq.h>
+#include <linux/mm.h>
+#include <linux/fb.h>
+#include <linux/delay.h>
+#include <linux/ctype.h>
+#include <linux/dma-mapping.h>
+#include <linux/interrupt.h>
+#include <linux/platform_device.h>
+#include <linux/io.h>
+#include <linux/memory.h>
+#include <linux/suspend.h>
+#include <linux/string.h>
+#include <linux/kthread.h>
+#include <linux/gpio.h>
+#include <asm/cacheflush.h>
+#include <linux/of_address.h>
+
+#include "hw_composer.h"
+
+struct hw_composer_master *hw_comp_master;
+
+extern struct mutex dpu_mutex;
+
+struct hw_composer_master * hw_composer_init(struct dpu_ctrl *dctrl)
+{
+	hw_comp_master = kzalloc(sizeof(struct hw_composer_master), GFP_KERNEL);
+	if(IS_ERR_OR_NULL(hw_comp_master)) {
+		return hw_comp_master;
+	}
+
+	hw_comp_master->dctrl = dctrl;
+
+	/*comp mutex??*/
+	mutex_init(&hw_comp_master->lock);
+
+	return hw_comp_master;
+}
+EXPORT_SYMBOL(hw_composer_init);
+
+
+void hw_composer_exit(struct hw_composer_master *comp_master)
+{
+	mutex_destroy(&comp_master->lock);
+
+	if(comp_master) {
+		kfree(comp_master);
+	}
+}
+EXPORT_SYMBOL(hw_composer_exit);
+
+struct hw_composer_ctx *hw_composer_create(void *priv_data)
+{
+	struct hw_composer_ctx *ctx = kzalloc(sizeof(struct hw_composer_ctx), GFP_KERNEL);
+
+	if(IS_ERR_OR_NULL(ctx)) {
+		return ctx;
+	}
+	/*设置ctx的master.*/
+	ctx->master = hw_comp_master;
+
+	ctx->block = 1;
+
+	INIT_LIST_HEAD(&ctx->list);
+
+	/*添加到ctx链表.*/
+
+	return ctx;
+}
+EXPORT_SYMBOL(hw_composer_create);
+
+int hw_composer_destroy(struct hw_composer_ctx *ctx)
+{
+
+	list_del(&ctx->list);
+	kfree(ctx);
+
+	return 0;
+}
+EXPORT_SYMBOL(hw_composer_destroy);
+
+void hw_composer_lock(struct hw_composer_ctx *ctx)
+{
+	mutex_lock(&ctx->master->lock);
+	mutex_lock(&dpu_mutex);
+}
+EXPORT_SYMBOL(hw_composer_lock);
+
+void hw_composer_unlock(struct hw_composer_ctx *ctx)
+{
+	mutex_unlock(&dpu_mutex);
+	mutex_unlock(&ctx->master->lock);
+}
+EXPORT_SYMBOL(hw_composer_unlock);
+
+int hw_composer_setup(struct hw_composer_ctx *ctx, struct comp_setup_info *comp_info)
+{
+	struct hw_composer_master *master = ctx->master;
+	struct dpu_ctrl *dctrl = master->dctrl;
+	/*TODO: check comp_info.*/
+
+	//Try to mmap tlb, if tlb_enabled.
+	dpu_ctrl_comp_dmmu_map(dctrl, comp_info);
+	memcpy(&ctx->comp_info, comp_info, sizeof(struct comp_setup_info));
+	return 0;
+}
+EXPORT_SYMBOL(hw_composer_setup);
+
+
+
+int hw_composer_wait_layer_vsync(struct hw_composer_ctx *ctx, int layer, struct buffer_addr_area *next_area)
+{
+	struct hw_composer_master *master = ctx->master;
+	struct dpu_ctrl *dctrl = master->dctrl;
+	int ret = 0;
+
+
+	ret = dpu_ctrl_comp_wait_for_vsync(dctrl, layer, next_area);
+
+	return 0;
+}
+EXPORT_SYMBOL(hw_composer_wait_layer_vsync);
+
+
+int hw_composer_start(struct hw_composer_ctx *ctx)
+{
+	struct hw_composer_master *master = ctx->master;
+	struct dpu_ctrl *dctrl = master->dctrl;
+	int ret = 0;
+
+	/*Lock to setup frame desc.*/
+	ret = dpu_ctrl_comp_setup(dctrl, &ctx->comp_info);
+	if (ret)
+		return ret;
+	ret = dpu_ctrl_comp_start(dctrl, ctx->block);
+
+	return ret;
+}
+EXPORT_SYMBOL(hw_composer_start);
+
+int hw_composer_wait_done(struct hw_composer_ctx *ctx)
+{
+	struct hw_composer_master *master = ctx->master;
+	struct dpu_ctrl *dctrl = master->dctrl;
+	int ret = 0;
+
+	if(ctx->block) {
+		ret = dpu_ctrl_comp_wait_done(dctrl);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(hw_composer_wait_done);
+
+int hw_composer_stop(struct hw_composer_ctx *ctx)
+{
+	struct hw_composer_master *master = ctx->master;
+	struct dpu_ctrl *dctrl = master->dctrl;
+	int ret = 0;
+
+	// TODO:
+	dpu_ctrl_comp_stop(dctrl, QCK_STOP);
+
+	return ret;
+}
+EXPORT_SYMBOL(hw_composer_stop);
+
+void hw_composer_force_update(struct hw_composer_ctx *ctx)
+{
+	struct hw_composer_master *master = ctx->master;
+	struct dpu_ctrl *dctrl = master->dctrl;
+
+	dctrl->force_frame_update = 1;
+}
+EXPORT_SYMBOL(hw_composer_force_update);
+
+void hw_composer_render_lock(struct hw_composer_ctx *ctx, int layer)
+{
+        struct hw_composer_master *master = ctx->master;
+        struct dpu_ctrl *dctrl = master->dctrl;
+
+	mutex_lock(&dctrl->render_layer_lock[layer]);
+}
+EXPORT_SYMBOL(hw_composer_render_lock);
+
+void hw_composer_render_unlock(struct hw_composer_ctx *ctx, int layer)
+{
+        struct hw_composer_master *master = ctx->master;
+        struct dpu_ctrl *dctrl = master->dctrl;
+
+	mutex_unlock(&dctrl->render_layer_lock[layer]);
+}
+EXPORT_SYMBOL(hw_composer_render_unlock);
+
+void hw_composer_render_lock_release(struct hw_composer_ctx *ctx, int layer)
+{
+        struct hw_composer_master *master = ctx->master;
+        struct dpu_ctrl *dctrl = master->dctrl;
+	if(mutex_is_locked(&dctrl->render_layer_lock[layer])) {
+		mutex_unlock(&dctrl->render_layer_lock[layer]);
+	}
+}
+EXPORT_SYMBOL(hw_composer_render_lock_release);
+
+void hw_composer_set_layer_angle(struct hw_composer_ctx *ctx, int angle, int layer)
+{
+        struct hw_composer_master *master = ctx->master;
+        struct dpu_ctrl *dctrl = master->dctrl;
+	if(angle != -1 && dctrl->rot_cfg.rot_angle != angle) {
+		dctrl->layer_angle[layer] = angle;
+	}
+	complete(&dctrl->layer_angle_completion);
+}
+EXPORT_SYMBOL(hw_composer_set_layer_angle);

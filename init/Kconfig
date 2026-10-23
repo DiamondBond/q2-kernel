@@ -321,6 +321,21 @@ config KERNEL_UNCOMPRESSED
 
 endchoice
 
+config KERNEL_SPLIT_MAX_BLOCKS
+	int "Maximum number of kernel split blocks"
+	depends on HAVE_KERNEL_GZIP || HAVE_KERNEL_LZMA || HAVE_KERNEL_ZSTD
+	default 16
+	help
+	  Maximum number of split kernel blocks recorded in the split image
+	  header.
+
+config KERNEL_SPLIT_BLOCK_SIZE
+	string "Kernel split block size"
+	depends on HAVE_KERNEL_GZIP || HAVE_KERNEL_LZMA || HAVE_KERNEL_ZSTD
+	default 2M
+	help
+	  Size of each raw kernel block before per-block compression.
+
 config DEFAULT_INIT
 	string "Default init path"
 	default ""

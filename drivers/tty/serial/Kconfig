@@ -1385,6 +1385,54 @@ config SERIAL_RP2_NR_UARTS
 	  If multiple cards are present, the default limit of 32 ports may
 	  need to be increased.
 
+config SERIAL_GPIO_SPI_TO_UART
+	bool "ingenic gpio_spi-to-uart serial port support"
+	select SERIAL_CORE
+
+config SERIAL_GPIO_SPI_TO_UART_CS_PIN
+	string "ingenic gpio_spi-to-uart spi-cs pin"
+	default "PD1"
+	depends on SERIAL_GPIO_SPI_TO_UART
+
+config SERIAL_GPIO_SPI_TO_UART_DT_PIN
+	string "ingenic gpio_spi-to-uart spi-dt pin"
+	default "PD2"
+	depends on SERIAL_GPIO_SPI_TO_UART
+
+config SERIAL_GPIO_SPI_TO_UART_DR_PIN
+	string "ingenic gpio_spi-to-uart spi-dr pin"
+	default "PD3"
+	depends on SERIAL_GPIO_SPI_TO_UART
+
+config SERIAL_GPIO_SPI_TO_UART_CLK_PIN
+	string "ingenic gpio_spi-to-uart spi-clk pin"
+	default "PD0"
+	depends on SERIAL_GPIO_SPI_TO_UART
+
+config SERIAL_GPIO_SPI_TO_UART2
+	bool "ingenic gpio_spi-to-uart2 serial port support"
+	select SERIAL_CORE
+
+config SERIAL_GPIO_SPI_TO_UART2_CS_PIN
+	string "ingenic gpio_spi-to-uart2 spi-cs pin"
+	default "PD1"
+	depends on SERIAL_GPIO_SPI_TO_UART2
+
+config SERIAL_GPIO_SPI_TO_UART2_DT_PIN
+	string "ingenic gpio_spi-to-uart2 spi-dt pin"
+	default "PD2"
+	depends on SERIAL_GPIO_SPI_TO_UART2
+
+config SERIAL_GPIO_SPI_TO_UART2_DR_PIN
+	string "ingenic gpio_spi-to-uart2 spi-dr pin"
+	default "PD3"
+	depends on SERIAL_GPIO_SPI_TO_UART2
+
+config SERIAL_GPIO_SPI_TO_UART2_CLK_PIN
+	string "ingenic gpio_spi-to-uart2 spi-clk pin"
+	default "PD0"
+	depends on SERIAL_GPIO_SPI_TO_UART2
+
 config SERIAL_FSL_LPUART
 	tristate "Freescale lpuart serial port support"
 	depends on HAS_DMA

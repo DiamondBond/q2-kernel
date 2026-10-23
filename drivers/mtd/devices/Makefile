@@ -20,4 +20,10 @@ obj-$(CONFIG_MTD_ST_SPI_FSM)    += st_spi_fsm.o
 obj-$(CONFIG_MTD_POWERNV_FLASH)	+= powernv_flash.o
 
 
+ifndef CONFIG_MTD_INGENIC_SFC_V2
+	obj-y   += ingenic_sfc_v1/
+else
+#	obj-y   += ingenic_sfc_v2/
+endif
+
 CFLAGS_docg3.o			+= -I$(src)

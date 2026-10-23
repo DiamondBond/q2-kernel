@@ -1,0 +1,302 @@
+/dts-v1/;
+
+#include <dt-bindings/input/input.h>
+#include "x2600.dtsi"
+
+/ {
+	compatible = "ingenic,x2660-evb-board", "ingenic,x2660";
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges =<>;
+
+		vdev0vring0: vdev0vring0@0x12400000{
+		    compatible = "shared-dma-pool";
+			reg = <0x12400000 0x1000>;
+			no-map;
+		};
+
+		vdev0vring1: vdev0vring1@0x12401000{
+		    compatible = "shared-dma-pool";
+			reg = <0x12401000 0x1000>;
+			no-map;
+		};
+
+		vdev0buffer: vdev0buffer@0x07F50000{
+			 compatible = "shared-dma-pool";
+			 reg = <0x07F50000 0x8000>;
+		 };
+
+		riscv_mcu_ram: riscv_mcu_ram@0x07F00000{
+			 compatible = "shared-dma-pool";
+			 reg = <0x07F00000 0x50000>;
+
+		 };
+	};
+
+};
+
+&riscv {
+	status = "okay";
+	memory-region=<&vdev0buffer &vdev0vring0 &vdev0vring1>;
+	load-addr=<0x07f00000>;
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pe>;
+};
+
+&uart2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pd>;
+};
+
+
+//&pwm {
+//	ingenic,pwm-outputs = <0>; /* <0 - 15> select which pwms are really used */
+//}
+
+&otg {
+	g-use-dma;
+	dr_mode = "otg"; // host,peripheral,otg
+	status = "okay";
+};
+
+&otg_phy {
+	ingenic,drvvbus-gpio = <&gpe 1 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+	status = "okay";
+};
+
+&msc0 {
+	status = "okay";
+	/*mmc-hs200-1_8v;*/
+	pinctrl-names ="default";
+	pinctrl-0 = <&msc0_4bit>;
+	cap-mmc-highspeed;
+	non-removable;
+	max-frequency = <50000000>;
+	bus-width = <4>;
+	non-removable;
+	voltage-ranges = <1800 3300>;
+
+	/* special property */
+	ingenic,wp-gpios = <0>;
+	ingneic,cd-gpios = <0>;
+	ingenic,rst-gpios = <0>;
+};
+
+&msc1 {
+	status = "disable";
+	/*mmc-hs200-1_8v;*/
+	cap-mmc-highspeed;
+	non-removable;
+	max-frequency = <50000000>;
+	bus-width = <4>;
+	non-removable;
+	voltage-ranges = <1800 3300>;
+
+	/* special property */
+	ingenic,wp-gpios = <0>;
+	ingneic,cd-gpios = <0>;
+	ingenic,rst-gpios = <0>;
+};
+
+/*
+&mac0 {
+	pinctrl-names = "default", "reset";
+	pinctrl-0 = <&mac0_rgmii_p0_normal>, <&mac0_rgmii_p1_normal>;
+	pinctrl-1 = <&mac0_rgmii_p0_rst>, <&mac0_rgmii_p1_normal>;
+	status = "okay";
+	ingenic,rst-gpio = <&gpb 0 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	ingenic,rst-ms = <10>;
+	ingenic,mac-mode = <RGMII>;
+	ingenic,mode-reg = <0xb00000e4>;
+};
+*/
+
+&sfc {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&sfc_pd1>;
+	ingenic,sfc-max-frequency = <200000000>;
+	ingenic,sfc-init-frequency= <40000000>;
+	ingenic,use_ofpart_info  = /bits/ 8 <0>;
+	ingenic,spiflash_param_offset = <0>;
+
+	nandflash@1 {
+		partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		/* spi nand flash partition */
+		partition@0 {
+			label = "uboot";
+			reg = <0x0000000 0x100000>;
+		/*read-only;*/
+		};
+		partition@100000 {
+			label = "kernel";
+			reg = <0x100000 0x800000>;
+		};
+		partition@900000 {
+			label = "rootfs";
+			reg = <0x900000 0xf700000>;
+		};
+		};
+	};
+
+};
+
+&aic {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&aic_pc>;
+};
+
+&i2c0{
+	status = "okay";
+	clock-frequency = <100000>;
+	// timeout = <1000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pc>;
+
+	wm8594: wm8594@0x1a{
+		compatible = "wlf,wm8594";
+		reg = <0x1a>;
+		status = "okay";
+		reset-gpios = <&gpc 20 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+	};
+};
+
+/ {
+
+	extclk: extclk {
+		clock-frequency = <24000000>;
+	};
+
+	gpio_keys: gpio_keys {
+		   compatible = "gpio-keys";
+
+		   power {
+			   label = "Power";
+			   linux,code = <KEY_POWER>;
+			   gpios = <&gpa 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			   gpio-key,wakeup;
+		   };
+	   };
+
+	sound_x2660_cdc {
+		status = "okay";
+		compatible = "ingenic,x2660-sound";
+		ingenic,model = "x2660";
+		ingenic,dai-link = "i2s-ecodec";
+		ingenic,stream = "i2s-ecodec";
+		ingenic,cpu-dai = <&i2s>;
+		ingenic,platform = <&aic>;
+		ingenic,codec =  <&wm8594>;
+		ingenic,codec-dai = "wm8594-hifi";
+	};
+};
+&jpegd {
+	    status = "disable";
+};
+
+&jpege {
+	    status = "disable";
+};
+
+&felix {
+	status = "disable";
+};
+
+&pdma {
+	status = "okay";
+};
+
+&pdma1 {
+	status = "disable";
+};
+
+&sadc{
+	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&aux_all_pe>;
+	ingenic,has_dma_support = <0>;
+
+};
+
+&can0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&can0_pin>;
+	ingenic,clk-freq = <24000000>;
+};
+
+&dpu {
+	status = "okay";
+	ingenic,disable-rdma-fb = <1>;
+	ingenic,enable-rotator = <1>;	//00->rdma
+	//Defines the init state of composer fb export infomations.
+	ingenic,layer-exported = <1 0 0 0>;
+	ingenic,layer-frames   = <2 2 2 2>;
+	ingenic,layer-framesize = <1920 1080>, <1920 1080>, <1920 1080>, <1920 1080>;   //Max framesize for each layer.
+	layer,color_mode        = <0 0 0 0>;                                    //src fmt,
+	layer,src-size          = <1920 1080>, <1920 1080>, <1920 1080>, <1920 1080>; //Layer src size should smaller than framesize
+        layer,target-size       = <1920 1080>, <1920 1080>, <1920 1080>, <1920 1080>;  //Target Size should smaller than src_size.
+	layer,target-pos        = <0 0>, <0 0>, <0 0>, <0 0>; //target pos , the start point of the target panel.
+	layer,enable            = <1 0 0 0>;                                    //layer enabled or disabled.
+	ingenic,logo-pan-layer  = <0>;                                          //on which layer should init logo pan on.
+	port {
+		dpu_out_ep: endpoint {
+		    remote-endpoint = <&panel_bm8766_ep>;
+	    };
+	};
+};
+/ {
+	display-dbi {
+		compatible = "simple-bus";
+		#interrupt-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <>;
+		panel_bm8766@0 {
+			compatible = "ingenic,bm8766";
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&tft_lcd_pb>;
+//	ingenic,vdd-en-gpio = <&gpc  GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			ingenic,rst-gpio = <&gpc 17 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			ingenic,lcd-pwm-gpio = <&gpc 7 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			port {
+			panel_bm8766_ep: endpoint {
+			 remote-endpoint = <&dpu_out_ep>;
+				 };
+			};
+		};
+	};
+};
+
+#ifdef CONFIG_STAGE_MTF070WS
+#include "x2660_evb_lcd/X2660_EVB_MIPI_LCD_MTF070.dtsi"
+#endif
+
+
+#ifdef CONFIG_STAGE_KHX101HW5
+#include "x2660_evb_lcd/X2660_EVB_LVDS_LCD_KHX101HW5.dtsi"
+#endif
+
+
+#ifdef CONFIG_STAGE_HC050IV45011
+#include "x2660_evb_lcd/X2660_EVB_MIPI_LCD_HC050IV.dtsi"
+#endif
+
+#ifdef CONFIG_STAGE_KD050WVFPA029
+#include "x2660_evb_lcd/X2660_EVB_RGB_LCD_KD050.dtsi"
+#endif
+
+#ifdef STAGE_KD035HVFMD057
+#include "x2660_evb_lcd/X2660_EVB_SLCD_KD035.dtsi"
+#endif

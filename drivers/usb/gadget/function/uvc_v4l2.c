@@ -57,7 +57,12 @@ struct uvc_format {
 
 static struct uvc_format uvc_formats[] = {
 	{ 16, V4L2_PIX_FMT_YUYV  },
+	{ 12, V4L2_PIX_FMT_NV12  },
+	{ 12, V4L2_PIX_FMT_NV21  },
+	{ 8,  V4L2_PIX_FMT_GREY  },
 	{ 0,  V4L2_PIX_FMT_MJPEG },
+	{ 0,  V4L2_PIX_FMT_H264  },
+	{ 0,  V4L2_PIX_FMT_HEVC  },
 };
 
 static int
@@ -71,6 +76,10 @@ uvc_v4l2_querycap(struct file *file, void *fh, struct v4l2_capability *cap)
 	strlcpy(cap->card, cdev->gadget->name, sizeof(cap->card));
 	strlcpy(cap->bus_info, dev_name(&cdev->gadget->dev),
 		sizeof(cap->bus_info));
+
+	cap->device_caps = V4L2_CAP_VIDEO_OUTPUT | V4L2_CAP_STREAMING;
+	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
+
 	return 0;
 }
 
@@ -227,56 +236,17 @@ static int
 uvc_v4l2_subscribe_event(struct v4l2_fh *fh,
 			 const struct v4l2_event_subscription *sub)
 {
-	struct uvc_device *uvc = video_get_drvdata(fh->vdev);
-	struct uvc_file_handle *handle = to_uvc_file_handle(fh);
-	int ret;
-
 	if (sub->type < UVC_EVENT_FIRST || sub->type > UVC_EVENT_LAST)
 		return -EINVAL;
 
-	if (sub->type == UVC_EVENT_SETUP && uvc->func_connected)
-		return -EBUSY;
-
-	ret = v4l2_event_subscribe(fh, sub, 2, NULL);
-	if (ret < 0)
-		return ret;
-
-	if (sub->type == UVC_EVENT_SETUP) {
-		uvc->func_connected = true;
-		handle->is_uvc_app_handle = true;
-		uvc_function_connect(uvc);
-	}
-
-	return 0;
-}
-
-static void uvc_v4l2_disable(struct uvc_device *uvc)
-{
-	uvc_function_disconnect(uvc);
-	uvcg_video_enable(&uvc->video, 0);
-	uvcg_free_buffers(&uvc->video.queue);
-	uvc->func_connected = false;
-	wake_up_interruptible(&uvc->func_connected_queue);
+	return v4l2_event_subscribe(fh, sub, 2, NULL);
 }
 
 static int
 uvc_v4l2_unsubscribe_event(struct v4l2_fh *fh,
 			   const struct v4l2_event_subscription *sub)
 {
-	struct uvc_device *uvc = video_get_drvdata(fh->vdev);
-	struct uvc_file_handle *handle = to_uvc_file_handle(fh);
-	int ret;
-
-	ret = v4l2_event_unsubscribe(fh, sub);
-	if (ret < 0)
-		return ret;
-
-	if (sub->type == UVC_EVENT_SETUP && handle->is_uvc_app_handle) {
-		uvc_v4l2_disable(uvc);
-		handle->is_uvc_app_handle = false;
-	}
-
-	return 0;
+	return v4l2_event_unsubscribe(fh, sub);
 }
 
 static long
@@ -289,6 +259,12 @@ uvc_v4l2_ioctl_default(struct file *file, void *fh, bool valid_prio,
 	switch (cmd) {
 	case UVCIOC_SEND_RESPONSE:
 		return uvc_send_response(uvc, arg);
+	case UVCIOC_GET_INTF_CONTROL_STREAMING: {
+		struct uvc_interface_id *interface_id = arg;
+		interface_id->control_intf_id = uvc->control_intf;
+		interface_id->streaming_intf_id = uvc->streaming_intf;
+		return 0;
+	}
 
 	default:
 		return -ENOIOCTLCMD;
@@ -331,6 +307,7 @@ uvc_v4l2_open(struct file *file)
 	handle->device = &uvc->video;
 	file->private_data = &handle->vfh;
 
+	uvc_function_connect(uvc);
 	return 0;
 }
 
@@ -342,9 +319,11 @@ uvc_v4l2_release(struct file *file)
 	struct uvc_file_handle *handle = to_uvc_file_handle(file->private_data);
 	struct uvc_video *video = handle->device;
 
+	uvc_function_disconnect(uvc);
+
 	mutex_lock(&video->mutex);
-	if (handle->is_uvc_app_handle)
-		uvc_v4l2_disable(uvc);
+	uvcg_video_enable(video, 0);
+	uvcg_free_buffers(&video->queue);
 	mutex_unlock(&video->mutex);
 
 	file->private_data = NULL;

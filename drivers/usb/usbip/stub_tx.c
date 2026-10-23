@@ -212,8 +212,6 @@ static int stub_send_ret_submit(struct stub_device *sdev)
 			pdu_header.u.ret_submit.actual_length = actual_length;
 		}
 
-		usbip_header_correct_endian(&pdu_header, 1);
-
 		iov[iovnum].iov_base = &pdu_header;
 		iov[iovnum].iov_len  = sizeof(pdu_header);
 		iovnum++;
@@ -235,8 +233,8 @@ static int stub_send_ret_submit(struct stub_device *sdev)
 			}
 			txsize += actual_length;
 		} else if (usb_pipein(urb->pipe) &&
-		    usb_pipetype(urb->pipe) != PIPE_ISOCHRONOUS &&
-		    urb->actual_length > 0) {
+			   usb_pipetype(urb->pipe) != PIPE_ISOCHRONOUS &&
+			   urb->actual_length > 0) {
 			if (urb->num_sgs) {
 				unsigned int copy = urb->actual_length;
 				int size;
@@ -265,14 +263,11 @@ static int stub_send_ret_submit(struct stub_device *sdev)
 		} else if (usb_pipein(urb->pipe) &&
 			   usb_pipetype(urb->pipe) == PIPE_ISOCHRONOUS) {
 			/*
-			 * For isochronous packets: actual length is the sum of
-			 * the actual length of the individual, packets, but as
-			 * the packet offsets are not changed there will be
-			 * padding between the packets. To optimally use the
-			 * bandwidth the padding is not transmitted.
+			 * For isochronous IN packets: actual length is the sum of
+			 * packet lengths, but packet payload is sent without
+			 * padding, so header actual_length may need adjustment.
 			 */
-
-			int i;
+			size_t iso_sum_len;
 
 			for (i = 0; i < urb->number_of_packets; i++) {
 				iov[iovnum].iov_base = urb->transfer_buffer +
@@ -283,17 +278,35 @@ static int stub_send_ret_submit(struct stub_device *sdev)
 				txsize += urb->iso_frame_desc[i].actual_length;
 			}
 
+			iso_sum_len = txsize - sizeof(pdu_header);
 			if (txsize != sizeof(pdu_header) + urb->actual_length) {
-				dev_err(&sdev->udev->dev,
-					"actual length of urb %d does not match iso packet sizes %zu\n",
-					urb->actual_length,
-					txsize-sizeof(pdu_header));
-				kfree(iov);
-				usbip_event_add(&sdev->ud,
-						SDEV_EVENT_ERROR_TCP);
-				return -1;
+				if (iso_sum_len > urb->transfer_buffer_length) {
+					dev_err(&sdev->udev->dev,
+						"actual length of urb %d does not match iso packet sizes %zu\n",
+						urb->actual_length,
+						txsize - sizeof(pdu_header));
+					kfree(iov);
+					usbip_event_add(&sdev->ud,
+							SDEV_EVENT_ERROR_TCP);
+					return -1;
+				}
+
+				pdu_header.u.ret_submit.actual_length = iso_sum_len;
 			}
+
 		}
+
+		if (usb_pipetype(urb->pipe) == PIPE_ISOCHRONOUS &&
+		    usb_pipeout(urb->pipe)) {
+			size_t iso_sum_len = 0;
+
+			for (i = 0; i < urb->number_of_packets; i++)
+				iso_sum_len += urb->iso_frame_desc[i].actual_length;
+
+			pdu_header.u.ret_submit.actual_length = iso_sum_len;
+		}
+
+		usbip_header_correct_endian(&pdu_header, 1);
 
 		/* 3. setup iso_packet_descriptor */
 		if (usb_pipetype(urb->pipe) == PIPE_ISOCHRONOUS) {
@@ -445,6 +458,7 @@ int stub_tx_loop(void *data)
 
 		wait_event_interruptible(sdev->tx_waitq,
 					 (!list_empty(&sdev->priv_tx) ||
+					  !list_empty(&sdev->priv_free) ||
 					  !list_empty(&sdev->unlink_tx) ||
 					  kthread_should_stop()));
 	}

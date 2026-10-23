@@ -72,12 +72,13 @@ static void rtc_hctosys(struct rtc_device *rtc)
 
 	tv64.tv_sec = rtc_tm_to_time64(&tm);
 
-#if BITS_PER_LONG == 32
-	if (tv64.tv_sec > INT_MAX) {
-		err = -ERANGE;
-		goto err_read;
-	}
-#endif
+// don't enable this code, it can't init the time over than 2038 year
+// #if BITS_PER_LONG == 32
+// 	if (tv64.tv_sec > INT_MAX) {
+// 		err = -ERANGE;
+// 		goto err_read;
+// 	}
+// #endif
 
 	err = do_settimeofday64(&tv64);
 

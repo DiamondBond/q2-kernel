@@ -19,20 +19,34 @@ endif
 # We need this, in case the user has it in its environment
 unexport CONFIG_
 
+KCONFIG_CONFIG_FILE := $(if $(KCONFIG_CONFIG),$(KCONFIG_CONFIG),.config)
+
+ifdef PRESERVE_TOOLCHAIN_CONFIG
+define run_kconfig_cmd
+	$(Q)$(srctree)/scripts/kconfig/preserve_toolchain.py save $(KCONFIG_CONFIG_FILE) $(KCONFIG_CONFIG_FILE).toolchain
+	$1
+	$(Q)$(srctree)/scripts/kconfig/preserve_toolchain.py restore $(KCONFIG_CONFIG_FILE) $(KCONFIG_CONFIG_FILE).toolchain
+endef
+else
+define run_kconfig_cmd
+	$1
+endef
+endif
+
 xconfig: $(obj)/qconf
-	$(Q)$< $(silent) $(Kconfig)
+	$(call run_kconfig_cmd,$(Q)$< $(silent) $(Kconfig))
 
 gconfig: $(obj)/gconf
-	$(Q)$< $(silent) $(Kconfig)
+	$(call run_kconfig_cmd,$(Q)$< $(silent) $(Kconfig))
 
 menuconfig: $(obj)/mconf
-	$(Q)$< $(silent) $(Kconfig)
+	$(call run_kconfig_cmd,$(Q)$< $(silent) $(Kconfig))
 
 config: $(obj)/conf
-	$(Q)$< $(silent) --oldaskconfig $(Kconfig)
+	$(call run_kconfig_cmd,$(Q)$< $(silent) --oldaskconfig $(Kconfig))
 
 nconfig: $(obj)/nconf
-	$(Q)$< $(silent) $(Kconfig)
+	$(call run_kconfig_cmd,$(Q)$< $(silent) $(Kconfig))
 
 build_menuconfig: $(obj)/mconf
 
@@ -68,31 +82,36 @@ simple-targets := oldconfig allnoconfig allyesconfig allmodconfig \
 PHONY += $(simple-targets)
 
 $(simple-targets): $(obj)/conf
-	$(Q)$< $(silent) --$@ $(Kconfig)
+	$(call run_kconfig_cmd,$(Q)$< $(silent) --$@ $(Kconfig))
 
 PHONY += savedefconfig defconfig
 
 savedefconfig: $(obj)/conf
-	$(Q)$< $(silent) --$@=defconfig $(Kconfig)
+	$(call run_kconfig_cmd,$(Q)$< $(silent) --$@=defconfig $(Kconfig))
 
 defconfig: $(obj)/conf
 ifneq ($(wildcard $(srctree)/arch/$(SRCARCH)/configs/$(KBUILD_DEFCONFIG)),)
 	@$(kecho) "*** Default configuration is based on '$(KBUILD_DEFCONFIG)'"
-	$(Q)$< $(silent) --defconfig=arch/$(SRCARCH)/configs/$(KBUILD_DEFCONFIG) $(Kconfig)
+	$(call run_kconfig_cmd,$(Q)$< $(silent) --defconfig=arch/$(SRCARCH)/configs/$(KBUILD_DEFCONFIG) $(Kconfig))
 else
 	@$(kecho) "*** Default configuration is based on target '$(KBUILD_DEFCONFIG)'"
 	$(Q)$(MAKE) -f $(srctree)/Makefile $(KBUILD_DEFCONFIG)
 endif
 
+# 定义 DEFCONFIG_PATH 变量（优先使用用户指定路径）
+# make O=output_dir KERNEL_CONFIG_PATH=path/to/configs/ xxx_defconfig
+# 或者 导出环境变量 export KERNEL_CONFIG_PATH=path/to/configs,  make O=output_dir xxx_defconfig
+DEFCONFIG_PATH ?= $(if $(KERNEL_CONFIG_PATH),$(KERNEL_CONFIG_PATH),arch/$(SRCARCH)/configs/)
+#$(Q)$< $(silent) --defconfig=arch/$(SRCARCH)/configs/$@ $(Kconfig)
 %_defconfig: $(obj)/conf
-	$(Q)$< $(silent) --defconfig=arch/$(SRCARCH)/configs/$@ $(Kconfig)
+	$(call run_kconfig_cmd,$(Q)$< $(silent) --defconfig=$(DEFCONFIG_PATH)/$@ $(Kconfig))
 
-configfiles=$(wildcard $(srctree)/kernel/configs/$@ $(srctree)/arch/$(SRCARCH)/configs/$@)
+configfiles=$(wildcard $(srctree)/kernel/configs/$@ $(DEFCONFIG_PATH)/$@) #$(srctree)/arch/$(SRCARCH)/configs/$@)
 
 %.config: $(obj)/conf
 	$(if $(call configfiles),, $(error No configuration exists for this target on this architecture))
 	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/kconfig/merge_config.sh -m .config $(configfiles)
-	$(Q)$(MAKE) -f $(srctree)/Makefile olddefconfig
+	$(call run_kconfig_cmd,$(Q)$(MAKE) -f $(srctree)/Makefile olddefconfig)
 
 PHONY += kvmconfig
 kvmconfig: kvm_guest.config

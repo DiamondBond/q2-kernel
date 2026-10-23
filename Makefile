@@ -374,11 +374,42 @@ include scripts/subarch.include
 # Alternatively CROSS_COMPILE can be set in the environment.
 # Default value for CROSS_COMPILE is not to prefix executables
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
-ARCH		?= $(SUBARCH)
+#ARCH		?= $(SUBARCH)
+ARCH		?= mips
+CROSS_COMPILE 	?= mips-linux-gnu-
+
+host-only-targets := help clean mrproper distclean cscope gtags TAGS tags \
+	%config oldconfig silentoldconfig defconfig savedefconfig olddefconfig \
+	menuconfig xconfig gconfig nconfig listnewconfig olddefconfig \
+	prepare scripts outputmakefile kernelrelease kernelversion
+
+ifeq ($(strip $(MAKECMDGOALS)),)
+need_cross_tools := 1
+else
+need_cross_tools := $(if $(filter-out $(host-only-targets),$(MAKECMDGOALS)),1,0)
+endif
+
+have_cross_tools := $(shell command -v $(CROSS_COMPILE)gcc >/dev/null 2>&1 && echo 1)
+
+ifeq ($(need_cross_tools),1)
+ifeq ($(have_cross_tools),)
+$(error Toolchain $(CROSS_COMPILE)gcc not found. Please add it to PATH or set CROSS_COMPILE)
+endif
+else
+ifeq ($(have_cross_tools),)
+$(warning Toolchain $(CROSS_COMPILE)gcc not found, using host gcc for $(MAKECMDGOALS))
+override CROSS_COMPILE :=
+export PRESERVE_TOOLCHAIN_CONFIG := 1
+endif
+endif
+
 
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)
 SRCARCH 	:= $(ARCH)
+
+OUTSIDE_BUILD ?= drivers/misc/dummy
+export OUTSIDE_BUILD
 
 # Additional ARCH settings for x86
 ifeq ($(ARCH),i386)
@@ -665,6 +696,12 @@ drivers-$(CONFIG_SAMPLES) += samples/
 drivers-y	+= net/ virt/
 libs-y		:= lib/
 endif # KBUILD_EXTMOD
+
+drivers-y += module_drivers/
+
+ifneq ($(OUTSIDE_BUILD), "drivers/misc/dummy")
+drivers-y	+= $(OUTSIDE_BUILD)/
+endif
 
 # The all: target is the default when no target is given on the
 # command line.
@@ -1374,7 +1411,7 @@ kselftest-merge:
 # Devicetree files
 
 ifneq ($(wildcard $(srctree)/arch/$(SRCARCH)/boot/dts/),)
-dtstree := arch/$(SRCARCH)/boot/dts
+dtstree := module_drivers/dts-stage
 endif
 
 ifneq ($(dtstree),)

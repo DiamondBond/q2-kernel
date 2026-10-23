@@ -1,0 +1,50 @@
+&dpu {
+	status = "okay";
+	ingenic,disable-rdma-fb = <1>;
+	ingenic,rot_angle = <0>;
+	/*Defines the init state of composer fb export infomations.*/
+	ingenic,layer-exported = <1 0 0 0>;
+	ingenic,layer-frames   = <2 2 2 2>;
+	ingenic,layer-framesize = <1920 1080>, <1920 1080>, <320 240>, <320 240>;   /*Max framesize for each layer.*/
+	layer,color_mode	= <0 0 0 0>;					/*src fmt,*/
+	layer,src-size       	= <1920 1080>, <1920 1080>, <320 240>, <240 200>;	/*Layer src size should smaller than framesize*/
+	layer,target-size	= <1920 1080>, <720 640>, <160 240>, <240 200>;	/*Target Size should smaller than src_size.*/
+	layer,target-pos	= <0 0>, <0 0>, <340 480>, <100 980>;	/*target pos , the start point of the target panel.*/
+	layer,enable		= <1 0 0 0>;					/*layer enabled or disabled.*/
+	ingenic,logo-pan-layer	= <0>;						/*on which layer should init logo pan on.*/
+	memory-region=<&reserved_memory>;
+};
+
+&i2c3 {
+    status = "okay";
+    clock-frequency = <100000>;
+    pinctrl-0 = <&i2c3_pe>;
+    timeout = <1000>;
+    pinctrl-names = "default";
+
+    lt8911@29{
+		status = "okay";
+		compatible = "mipi2edp,lt8911";
+		reg = <0x29>;
+		lt8911,reset-gpio = <&gpc 9 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		lt8911,lcd_en-gpio = <&gpb 8 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+    };
+};
+
+/{
+	backlight {
+		compatible = "pwm-backlight";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm12_pc>;
+		enable-gpios = <&gpb 7 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		pwms = <&pwm 12 2000>; /* arg1: pwm channel id [0~15]. arg2: period in ns. */
+
+		brightness-levels = <0 10 20 30 40 50 60 70 80 90 100>;
+		num-interpolated-steps = <10>;
+		default-brightness-level = <100>;
+
+		post-pwm-on-delay-ms = <15>;
+		pwm-off-delay-ms = <15>;
+	};
+
+};

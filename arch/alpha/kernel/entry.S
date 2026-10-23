@@ -469,10 +469,8 @@ entSys:
 #ifdef CONFIG_AUDITSYSCALL
 	lda     $6, _TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT
 	and     $3, $6, $3
-	bne     $3, strace
-#else
-	blbs    $3, strace		/* check for SYSCALL_TRACE in disguise */
 #endif
+	bne     $3, strace
 	beq	$4, 1f
 	ldq	$27, 0($5)
 1:	jsr	$26, ($27), sys_ni_syscall
@@ -546,7 +544,7 @@ $ret_success:
 	.align	4
 	.type	work_pending, @function
 work_pending:
-	and	$17, _TIF_NOTIFY_RESUME | _TIF_SIGPENDING | _TIF_NOTIFY_SIGNAL, $2
+	and	$17, _TIF_NOTIFY_RESUME | _TIF_SIGPENDING, $2
 	bne	$2, $work_notifysig
 
 $work_resched:

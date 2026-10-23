@@ -108,9 +108,9 @@ static nokprobe_inline long address_ok(struct pt_regs *regs,
 {
 	if (!user_mode(regs))
 		return 1;
-	if (access_ok((void __user *)ea, nb))
+	if (__access_ok(ea, nb))
 		return 1;
-	if (access_ok((void __user *)ea, 1))
+	if (__access_ok(ea, 1))
 		/* Access overlaps the end of the user region */
 		regs->dar = TASK_SIZE_MAX - 1;
 	else
@@ -949,10 +949,7 @@ NOKPROBE_SYMBOL(emulate_dcbz);
 
 #define __put_user_asmx(x, addr, err, op, cr)		\
 	__asm__ __volatile__(				\
-		".machine push\n"			\
-		".machine power8\n"			\
 		"1:	" op " %2,0,%3\n"		\
-		".machine pop\n"			\
 		"	mfcr	%1\n"			\
 		"2:\n"					\
 		".section .fixup,\"ax\"\n"		\
@@ -965,10 +962,7 @@ NOKPROBE_SYMBOL(emulate_dcbz);
 
 #define __get_user_asmx(x, addr, err, op)		\
 	__asm__ __volatile__(				\
-		".machine push\n"			\
-		".machine power8\n"			\
 		"1:	"op" %1,0,%2\n"			\
-		".machine pop\n"			\
 		"2:\n"					\
 		".section .fixup,\"ax\"\n"		\
 		"3:	li	%0,%3\n"		\
@@ -1859,7 +1853,7 @@ int analyse_instr(struct instruction_op *op, const struct pt_regs *regs,
 				goto compute_done;
 			}
 
-			goto unknown_opcode;
+			return -1;
 #ifdef __powerpc64__
 		case 777:	/* modsd */
 			if (!cpu_has_feature(CPU_FTR_ARCH_300))
@@ -2915,20 +2909,6 @@ int analyse_instr(struct instruction_op *op, const struct pt_regs *regs,
 
 	}
 
-	if (OP_IS_LOAD_STORE(op->type) && (op->type & UPDATE)) {
-		switch (GETTYPE(op->type)) {
-		case LOAD:
-			if (ra == rd)
-				goto unknown_opcode;
-			fallthrough;
-		case STORE:
-		case LOAD_FP:
-		case STORE_FP:
-			if (ra == 0)
-				goto unknown_opcode;
-		}
-	}
-
 #ifdef CONFIG_VSX
 	if ((GETTYPE(op->type) == LOAD_VSX ||
 	     GETTYPE(op->type) == STORE_VSX) &&
@@ -3068,14 +3048,12 @@ void emulate_update_regs(struct pt_regs *regs, struct instruction_op *op)
 		case BARRIER_EIEIO:
 			eieio();
 			break;
-#ifdef CONFIG_PPC64
 		case BARRIER_LWSYNC:
 			asm volatile("lwsync" : : : "memory");
 			break;
 		case BARRIER_PTESYNC:
 			asm volatile("ptesync" : : : "memory");
 			break;
-#endif
 		}
 		break;
 
@@ -3193,7 +3171,7 @@ int emulate_loadstore(struct pt_regs *regs, struct instruction_op *op)
 			__put_user_asmx(op->val, ea, err, "stbcx.", cr);
 			break;
 		case 2:
-			__put_user_asmx(op->val, ea, err, "sthcx.", cr);
+			__put_user_asmx(op->val, ea, err, "stbcx.", cr);
 			break;
 #endif
 		case 4:

@@ -8,6 +8,22 @@
 #ifndef __DT_BINDINGS_DMA_X1000_DMA_H__
 #define __DT_BINDINGS_DMA_X1000_DMA_H__
 
+#define INGENIC_DMA_REQ_AUTO_TX		0x8
+#define INGENIC_DMA_REQ_AIC_TX		0x6
+#define INGENIC_DMA_REQ_AIC_RX		0x7
+#define INGENIC_DMA_REQ_PCM_TX		0x20
+#define INGENIC_DMA_REQ_PCM_RX		0x21
+#define INGENIC_DMA_REQ_UART0_RX	0x15
+#define INGENIC_DMA_REQ_UART1_RX	0x13
+#define INGENIC_DMA_REQ_UART2_RX	0x11
+
+#define IS_INGENIC_DMA_REQ_UARTX_RX(drt) ({ \
+		unsigned long _drt = (drt); \
+		(_drt == INGENIC_DMA_REQ_UART0_RX) || \
+		(_drt == INGENIC_DMA_REQ_UART1_RX) || \
+		(_drt == INGENIC_DMA_REQ_UART2_RX) \
+;})
+
 /*
  * Request type numbers for the X1000 DMA controller (written to the DRTn
  * register for the channel).

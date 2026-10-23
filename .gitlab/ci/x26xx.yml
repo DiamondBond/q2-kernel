@@ -1,0 +1,15 @@
+build-x2670_halley_v1.0_defconfig-job:       # This job runs in the build stage, which runs first.
+  stage: build
+  variables:
+    BUILD_CONFIG: x2670_halley_v1.0_defconfig
+    BUILD_DIR: tmp.build.$BUILD_CONFIG
+  script:
+    - echo "开始编译 <$BUILD_CONFIG>..."
+    - mkdir -p $BUILD_DIR
+    - make O=$BUILD_DIR -C . $BUILD_CONFIG
+    - make O=$BUILD_DIR -C . uImage
+
+  artifacts:
+    paths:
+      - $BUILD_DIR/arch/mips/boot/uImage
+      - $BUILD_DIR/vmlinux

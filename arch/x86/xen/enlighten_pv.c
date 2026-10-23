@@ -586,10 +586,8 @@ DEFINE_IDTENTRY_RAW(xenpv_exc_debug)
 DEFINE_IDTENTRY_RAW(exc_xen_unknown_trap)
 {
 	/* This should never happen and there is no way to handle it. */
-	instrumentation_begin();
 	pr_err("Unknown trap in Xen PV mode.");
 	BUG();
-	instrumentation_end();
 }
 
 struct trap_array_entry {
@@ -736,8 +734,8 @@ static void xen_write_idt_entry(gate_desc *dt, int entrynum, const gate_desc *g)
 	preempt_enable();
 }
 
-static unsigned xen_convert_trap_info(const struct desc_ptr *desc,
-				      struct trap_info *traps, bool full)
+static void xen_convert_trap_info(const struct desc_ptr *desc,
+				  struct trap_info *traps)
 {
 	unsigned in, out, count;
 
@@ -747,18 +745,17 @@ static unsigned xen_convert_trap_info(const struct desc_ptr *desc,
 	for (in = out = 0; in < count; in++) {
 		gate_desc *entry = (gate_desc *)(desc->address) + in;
 
-		if (cvt_gate_to_trap(in, entry, &traps[out]) || full)
+		if (cvt_gate_to_trap(in, entry, &traps[out]))
 			out++;
 	}
-
-	return out;
+	traps[out].address = 0;
 }
 
 void xen_copy_trap_info(struct trap_info *traps)
 {
 	const struct desc_ptr *desc = this_cpu_ptr(&idt_desc);
 
-	xen_convert_trap_info(desc, traps, true);
+	xen_convert_trap_info(desc, traps);
 }
 
 /* Load a new IDT into Xen.  In principle this can be per-CPU, so we
@@ -768,8 +765,6 @@ static void xen_load_idt(const struct desc_ptr *desc)
 {
 	static DEFINE_SPINLOCK(lock);
 	static struct trap_info traps[257];
-	static const struct trap_info zero = { };
-	unsigned out;
 
 	trace_xen_cpu_load_idt(desc);
 
@@ -777,8 +772,7 @@ static void xen_load_idt(const struct desc_ptr *desc)
 
 	memcpy(this_cpu_ptr(&idt_desc), desc, sizeof(idt_desc));
 
-	out = xen_convert_trap_info(desc, traps, false);
-	traps[out] = zero;
+	xen_convert_trap_info(desc, traps);
 
 	xen_mc_flush();
 	if (HYPERVISOR_set_trap_table(traps))
@@ -1084,6 +1078,9 @@ static const struct pv_cpu_ops xen_cpu_ops __initconst = {
 #endif
 	.io_delay = xen_io_delay,
 
+	/* Xen takes care of %gs when switching to usermode for us */
+	.swapgs = paravirt_nop,
+
 	.start_context_switch = paravirt_start_context_switch,
 	.end_context_switch = xen_end_context_switch,
 };
@@ -1205,11 +1202,6 @@ static void __init xen_dom0_set_legacy_features(void)
 	x86_platform.legacy.rtc = 1;
 }
 
-static void __init xen_domu_set_legacy_features(void)
-{
-	x86_platform.legacy.rtc = 0;
-}
-
 /* First C function to be called on Xen boot */
 asmlinkage __visible void __init xen_start_kernel(void)
 {
@@ -1270,15 +1262,15 @@ asmlinkage __visible void __init xen_start_kernel(void)
 	/* Get mfn list */
 	xen_build_dynamic_phys_to_machine();
 
-	/* Work out if we support NX */
-	get_cpu_cap(&boot_cpu_data);
-	x86_configure_nx();
-
 	/*
 	 * Set up kernel GDT and segment registers, mainly so that
 	 * -fstack-protector code can be executed.
 	 */
 	xen_setup_gdt(0);
+
+	/* Work out if we support NX */
+	get_cpu_cap(&boot_cpu_data);
+	x86_configure_nx();
 
 	/* Determine virtual and physical address sizes */
 	get_cpu_address_sizes(&boot_cpu_data);
@@ -1362,8 +1354,6 @@ asmlinkage __visible void __init xen_start_kernel(void)
 		add_preferred_console("xenboot", 0, NULL);
 		if (pci_xen)
 			x86_init.pci.arch_init = pci_xen_init;
-		x86_platform.set_legacy_features =
-				xen_domu_set_legacy_features;
 	} else {
 		const struct dom0_vga_console_info *info =
 			(void *)((char *)xen_start_info +
@@ -1387,6 +1377,10 @@ asmlinkage __visible void __init xen_start_kernel(void)
 		pci_request_acs();
 
 		xen_acpi_sleep_register();
+
+		/* Avoid searching for BIOS MP tables */
+		x86_init.mpparse.find_smp_config = x86_init_noop;
+		x86_init.mpparse.get_smp_config = x86_init_uint_noop;
 
 		xen_boot_params_init_edd();
 

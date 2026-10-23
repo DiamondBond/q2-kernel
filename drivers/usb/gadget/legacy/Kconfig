@@ -112,6 +112,14 @@ config GADGET_UAC1_LEGACY
 	  paths hardwired to the Audio codec chip on-board and doesn't work
 	  without one.
 
+config USB_RNDIS
+	tristate "RNDIS Sample Gadget"
+	depends on NET
+	select USB_LIBCOMPOSITE
+	select USB_U_ETHER
+	select USB_F_RNDIS
+	select CRC32
+
 config USB_ETH
 	tristate "Ethernet Gadget (with CDC Ethernet support)"
 	depends on NET
@@ -346,6 +354,19 @@ config USB_G_PRINTER
 	  For more information, see Documentation/usb/gadget_printer.rst
 	  which includes sample code for accessing the device file.
 
+config USB_G_DISPLAY
+	tristate "Display Gadget"
+	select USB_LIBCOMPOSITE
+	select USB_F_DISPLAY
+	help
+	  The Display Gadget channels data between the USB host and a
+	  userspace program driving the display engine. The user space
+	  program reads the device file /dev/g_display<X> to receive
+	  display data.
+
+	  Say "y" to link the driver statically, or "m" to build a
+	  dynamically linked module called "g_display".
+
 if TTY
 
 config USB_CDC_COMPOSITE
@@ -502,6 +523,7 @@ config USB_G_WEBCAM
 	tristate "USB Webcam Gadget"
 	depends on VIDEO_V4L2
 	select USB_LIBCOMPOSITE
+	select VIDEOBUF2_DMA_SG
 	select VIDEOBUF2_VMALLOC
 	select USB_F_UVC
 	help
@@ -515,10 +537,15 @@ config USB_G_WEBCAM
 config USB_RAW_GADGET
 	tristate "USB Raw Gadget"
 	help
-	  USB Raw Gadget is a kernel module that provides a userspace interface
-	  for the USB Gadget subsystem. Essentially it allows to emulate USB
-	  devices from userspace. See Documentation/usb/raw-gadget.rst for
-	  details.
+	  USB Raw Gadget is a gadget driver that gives userspace low-level
+	  control over the gadget's communication process.
+
+	  Like any other gadget driver, Raw Gadget implements USB devices via
+	  the USB gadget API. Unlike most gadget drivers, Raw Gadget does not
+	  implement any concrete USB functions itself but requires userspace
+	  to do that.
+
+	  See Documentation/usb/raw-gadget.rst for details.
 
 	  Say "y" to link the driver statically, or "m" to build a
 	  dynamically linked module called "raw_gadget".

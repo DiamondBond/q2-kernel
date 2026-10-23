@@ -30,3 +30,10 @@ source "lib/Kconfig"
 source "lib/Kconfig.debug"
 
 source "Documentation/Kconfig"
+
+source "module_drivers/Kconfig"
+
+config OUTSIDE_BUILD
+	string
+	default "drivers/misc/dummy"
+source "$(OUTSIDE_BUILD)/Kconfig"

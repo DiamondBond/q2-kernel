@@ -333,12 +333,16 @@ label:
 	mfspr	r1, SPRN_SPRG_THREAD
 	lwz	r1, TASK_CPU - THREAD(r1)
 	slwi	r1, r1, 3
-	addis	r1, r1, emergency_ctx-PAGE_OFFSET@ha
+	addis	r1, r1, emergency_ctx@ha
 #else
-	lis	r1, emergency_ctx-PAGE_OFFSET@ha
+	lis	r1, emergency_ctx@ha
 #endif
-	lwz	r1, emergency_ctx-PAGE_OFFSET@l(r1)
-	addi	r1, r1, THREAD_SIZE - INT_FRAME_SIZE
+	lwz	r1, emergency_ctx@l(r1)
+	cmpwi	cr1, r1, 0
+	bne	cr1, 1f
+	lis	r1, init_thread_union@ha
+	addi	r1, r1, init_thread_union@l
+1:	addi	r1, r1, THREAD_SIZE - INT_FRAME_SIZE
 	EXCEPTION_PROLOG_2
 	SAVE_NVGPRS(r11)
 	addi	r3, r1, STACK_FRAME_OVERHEAD

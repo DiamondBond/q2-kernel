@@ -1,0 +1,17 @@
+# drivers/misc/bootinfo/Kconfig
+
+menuconfig BOOTINFO
+    bool "Boot Info Support"
+    default n
+    help
+      Enable support for early boot info parsing.
+
+if BOOTINFO
+
+config BOOTINFO_EARLY_SN
+    bool "Enable early SN parsing from cmdline"
+    default n
+    help
+      Parse SN from kernel command line using 'sn=xxx'.
+
+endif

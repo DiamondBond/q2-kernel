@@ -179,6 +179,7 @@ static int vgadget_pullup(struct usb_gadget *_gadget, int value)
 		udc->desc_cached = 0;
 
 		spin_unlock_irqrestore(&udc->lock, flags);
+		usb_gadget_set_state(_gadget, USB_STATE_NOTATTACHED);
 		usbip_event_add(&udc->ud, VUDC_EVENT_REMOVED);
 		usbip_stop_eh(&udc->ud); /* Wait for eh completion */
 	}
@@ -234,10 +235,13 @@ static int vep_enable(struct usb_ep *_ep,
 	unsigned int	maxp;
 	unsigned long	flags;
 
+	if (!_ep)
+		return -EINVAL;
+
 	ep = to_vep(_ep);
 	udc = ep_to_vudc(ep);
 
-	if (!_ep || !desc || ep->desc || _ep->caps.type_control
+	if (!desc || ep->desc || _ep->caps.type_control
 			|| desc->bDescriptorType != USB_DT_ENDPOINT)
 		return -EINVAL;
 
@@ -263,9 +267,12 @@ static int vep_disable(struct usb_ep *_ep)
 	struct vudc *udc;
 	unsigned long flags;
 
+	if (!_ep)
+		return -EINVAL;
+
 	ep = to_vep(_ep);
 	udc = ep_to_vudc(ep);
-	if (!_ep || !ep->desc || _ep->caps.type_control)
+	if (!ep->desc || _ep->caps.type_control)
 		return -EINVAL;
 
 	spin_lock_irqsave(&udc->lock, flags);
@@ -280,15 +287,19 @@ static struct usb_request *vep_alloc_request(struct usb_ep *_ep,
 		gfp_t mem_flags)
 {
 	struct vrequest *req;
+	struct vep *ep;
 
 	if (!_ep)
 		return NULL;
+
+	ep = to_vep(_ep);
 
 	req = kzalloc(sizeof(*req), mem_flags);
 	if (!req)
 		return NULL;
 
 	INIT_LIST_HEAD(&req->req_entry);
+	req->udc = ep_to_vudc(ep);
 
 	return &req->req;
 }
@@ -333,7 +344,6 @@ static int vep_queue(struct usb_ep *_ep, struct usb_request *_req,
 static int vep_dequeue(struct usb_ep *_ep, struct usb_request *_req)
 {
 	struct vep *ep;
-	struct vrequest *req;
 	struct vudc *udc;
 	struct vrequest *lst;
 	unsigned long flags;
@@ -343,8 +353,7 @@ static int vep_dequeue(struct usb_ep *_ep, struct usb_request *_req)
 		return ret;
 
 	ep = to_vep(_ep);
-	req = to_vrequest(_req);
-	udc = req->udc;
+	udc = ep_to_vudc(ep);
 
 	if (!udc->driver)
 		return -ESHUTDOWN;
@@ -374,10 +383,10 @@ vep_set_halt_and_wedge(struct usb_ep *_ep, int value, int wedged)
 	unsigned long flags;
 	int ret = 0;
 
-	ep = to_vep(_ep);
 	if (!_ep)
 		return -EINVAL;
 
+	ep = to_vep(_ep);
 	udc = ep_to_vudc(ep);
 	if (!udc->driver)
 		return -ESHUTDOWN;
@@ -458,6 +467,7 @@ static void vudc_shutdown(struct usbip_device *ud)
 	spin_unlock_irqrestore(&udc->lock, flags);
 	if (call_disconnect)
 		udc->driver->disconnect(&udc->gadget);
+	usb_gadget_set_state(&udc->gadget, USB_STATE_NOTATTACHED);
 }
 
 static void vudc_device_reset(struct usbip_device *ud)

@@ -359,15 +359,13 @@ static bool kvmppc_gfn_is_uvmem_pfn(unsigned long gfn, struct kvm *kvm,
 static bool kvmppc_next_nontransitioned_gfn(const struct kvm_memory_slot *memslot,
 		struct kvm *kvm, unsigned long *gfn)
 {
-	struct kvmppc_uvmem_slot *p = NULL, *iter;
+	struct kvmppc_uvmem_slot *p;
 	bool ret = false;
 	unsigned long i;
 
-	list_for_each_entry(iter, &kvm->arch.uvmem_pfns, list)
-		if (*gfn >= iter->base_pfn && *gfn < iter->base_pfn + iter->nr_pfns) {
-			p = iter;
+	list_for_each_entry(p, &kvm->arch.uvmem_pfns, list)
+		if (*gfn >= p->base_pfn && *gfn < p->base_pfn + p->nr_pfns)
 			break;
-		}
 	if (!p)
 		return ret;
 	/*

@@ -613,6 +613,7 @@ void build_tlb_write_entry(u32 **p, struct uasm_label **l,
 		break;
 
 	case CPU_XBURST:
+	case CPU_XBURST2:
 		tlbw(p);
 		uasm_i_nop(p);
 		break;
@@ -2026,6 +2027,9 @@ static void build_r3000_tlb_modify_handler(void)
 
 static bool cpu_has_tlbex_tlbp_race(void)
 {
+#ifdef CONFIG_MACH_XBURST2
+	return true;
+#endif
 	/*
 	 * When a Hardware Table Walker is running it can replace TLB entries
 	 * at any time, leading to a race between it & the CPU.
@@ -2159,7 +2163,9 @@ static void build_r4000_tlb_load_handler(void)
 		 * also have dedicated RiXi exception handlers, so this
 		 * shouldn't be hit.
 		 */
+#ifndef CONFIG_MACH_XBURST2
 		WARN(cpu_has_tlbex_tlbp_race(), "Unhandled race in RiXi path");
+#endif
 
 		uasm_i_tlbr(&p);
 

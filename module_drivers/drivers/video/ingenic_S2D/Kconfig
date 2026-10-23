@@ -1,0 +1,19 @@
+config INGENIC_S2D
+	bool "Ingenic S2D Driver"
+	depends on SOC_X2600 || SOC_AD100
+	default n
+	help
+	  Support for Ingenic simple image 2d operations.
+choice
+	prompt "the C lib select (glibc or uclibc) for ingenic_S2D"
+	depends on INGENIC_S2D
+	help
+	  Select the C lib
+config INGENIC_S2D_GLIBC_DRV
+	bool "compile with glibc"
+	depends on INGENIC_S2D
+
+config INGENIC_S2D_UCLIBC_DRV
+	bool "compile with uclibc"
+	depends on INGENIC_S2D
+endchoice

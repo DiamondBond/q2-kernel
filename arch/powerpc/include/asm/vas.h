@@ -52,7 +52,7 @@ enum vas_cop_type {
  * Receive window attributes specified by the (in-kernel) owner of window.
  */
 struct vas_rx_win_attr {
-	u64 rx_fifo;
+	void *rx_fifo;
 	int rx_fifo_size;
 	int wcreds_max;
 

@@ -1,6 +1,14 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config WIRELESS_EXT
-	bool
+	bool "Enable Wireless Extensions support for legacy drivers"
+	help
+		Enable the legacy Wireless Extensions interface used by older
+		wireless tools such as 'iwconfig'. Some external module drivers 
+		and utilities may still require this for compatibility.
+
+		WIRELESS_EXT can be manually configured through this
+		configuration option, without needing to be selected by another
+		option to take effect.
 
 config WEXT_CORE
 	def_bool y

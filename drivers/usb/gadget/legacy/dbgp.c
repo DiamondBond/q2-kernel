@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
+#include <linux/dma-mapping.h>
 
 #include "u_serial.h"
 
@@ -137,7 +138,8 @@ static int dbgp_enable_ep_req(struct usb_ep *ep)
 		goto fail_1;
 	}
 
-	req->buf = kzalloc(DBGP_REQ_LEN, GFP_KERNEL);
+	req->buf = kmalloc(ALIGN(DBGP_REQ_LEN, dma_get_cache_alignment()),
+			   GFP_KERNEL);
 	if (!req->buf) {
 		err = -ENOMEM;
 		stp = 2;
@@ -288,7 +290,9 @@ static int dbgp_bind(struct usb_gadget *gadget,
 		goto fail;
 	}
 
-	dbgp.req->buf = kmalloc(DBGP_REQ_EP0_LEN, GFP_KERNEL);
+	dbgp.req->buf = kmalloc(ALIGN(DBGP_REQ_EP0_LEN,
+					dma_get_cache_alignment()),
+				 GFP_KERNEL);
 	if (!dbgp.req->buf) {
 		err = -ENOMEM;
 		stp = 2;
@@ -344,19 +348,6 @@ static int dbgp_setup(struct usb_gadget *gadget,
 	int err = -EOPNOTSUPP;
 	void *data = NULL;
 	u16 len = 0;
-
-	if (length > DBGP_REQ_LEN) {
-		if (ctrl->bRequestType & USB_DIR_IN) {
-			/* Cast away the const, we are going to overwrite on purpose. */
-			__le16 *temp = (__le16 *)&ctrl->wLength;
-
-			*temp = cpu_to_le16(DBGP_REQ_LEN);
-			length = DBGP_REQ_LEN;
-		} else {
-			return err;
-		}
-	}
-
 
 	if (request == USB_REQ_GET_DESCRIPTOR) {
 		switch (value>>8) {

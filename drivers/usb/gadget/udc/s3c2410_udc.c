@@ -54,6 +54,8 @@ static struct clk		*udc_clock;
 static struct clk		*usb_bus_clock;
 static void __iomem		*base_addr;
 static int			irq_usbd;
+static u64			rsrc_start;
+static u64			rsrc_len;
 static struct dentry		*s3c2410_udc_debugfs_root;
 
 static inline u32 udc_read(u32 reg)
@@ -1750,8 +1752,7 @@ static int s3c2410_udc_probe(struct platform_device *pdev)
 	udc_clock = clk_get(NULL, "usb-device");
 	if (IS_ERR(udc_clock)) {
 		dev_err(dev, "failed to get udc clock source\n");
-		retval = PTR_ERR(udc_clock);
-		goto err_usb_bus_clk;
+		return PTR_ERR(udc_clock);
 	}
 
 	clk_prepare_enable(udc_clock);
@@ -1772,9 +1773,9 @@ static int s3c2410_udc_probe(struct platform_device *pdev)
 	udc_info = dev_get_platdata(&pdev->dev);
 
 	base_addr = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(base_addr)) {
-		retval = PTR_ERR(base_addr);
-		goto err_udc_clk;
+	if (!base_addr) {
+		retval = -ENOMEM;
+		goto err_mem;
 	}
 
 	the_controller = udc;
@@ -1784,10 +1785,6 @@ static int s3c2410_udc_probe(struct platform_device *pdev)
 	s3c2410_udc_reinit(udc);
 
 	irq_usbd = platform_get_irq(pdev, 0);
-	if (irq_usbd < 0) {
-		retval = irq_usbd;
-		goto err_udc_clk;
-	}
 
 	/* irq setup after old hardware state is cleaned up */
 	retval = request_irq(irq_usbd, s3c2410_udc_irq,
@@ -1796,7 +1793,7 @@ static int s3c2410_udc_probe(struct platform_device *pdev)
 	if (retval != 0) {
 		dev_err(dev, "cannot get irq %i, err %d\n", irq_usbd, retval);
 		retval = -EBUSY;
-		goto err_udc_clk;
+		goto err_map;
 	}
 
 	dev_dbg(dev, "got irq %i\n", irq_usbd);
@@ -1867,14 +1864,10 @@ err_gpio_claim:
 		gpio_free(udc_info->vbus_pin);
 err_int:
 	free_irq(irq_usbd, udc);
-err_udc_clk:
-	clk_disable_unprepare(udc_clock);
-	clk_put(udc_clock);
-	udc_clock = NULL;
-err_usb_bus_clk:
-	clk_disable_unprepare(usb_bus_clock);
-	clk_put(usb_bus_clock);
-	usb_bus_clock = NULL;
+err_map:
+	iounmap(base_addr);
+err_mem:
+	release_mem_region(rsrc_start, rsrc_len);
 
 	return retval;
 }
@@ -1905,6 +1898,9 @@ static int s3c2410_udc_remove(struct platform_device *pdev)
 	}
 
 	free_irq(irq_usbd, udc);
+
+	iounmap(base_addr);
+	release_mem_region(rsrc_start, rsrc_len);
 
 	if (!IS_ERR(udc_clock) && udc_clock != NULL) {
 		clk_disable_unprepare(udc_clock);

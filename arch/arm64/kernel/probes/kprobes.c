@@ -286,12 +286,10 @@ int __kprobes kprobe_fault_handler(struct pt_regs *regs, unsigned int fsr)
 		if (!instruction_pointer(regs))
 			BUG();
 
-		if (kcb->kprobe_status == KPROBE_REENTER) {
+		if (kcb->kprobe_status == KPROBE_REENTER)
 			restore_previous_kprobe(kcb);
-		} else {
-			kprobes_restore_local_irqflag(kcb, regs);
+		else
 			reset_current_kprobe();
-		}
 
 		break;
 	case KPROBE_HIT_ACTIVE:

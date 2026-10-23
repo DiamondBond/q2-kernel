@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/etherdevice.h>
+#include <linux/dma-mapping.h>
 
 #include "u_ether.h"
 #include "u_ether_configfs.h"
@@ -770,7 +771,9 @@ ecm_bind(struct usb_configuration *c, struct usb_function *f)
 	ecm->notify_req = usb_ep_alloc_request(ep, GFP_KERNEL);
 	if (!ecm->notify_req)
 		goto fail;
-	ecm->notify_req->buf = kmalloc(ECM_STATUS_BYTECOUNT, GFP_KERNEL);
+	ecm->notify_req->buf = kmalloc(ALIGN(ECM_STATUS_BYTECOUNT,
+					dma_get_cache_alignment()),
+				 GFP_KERNEL);
 	if (!ecm->notify_req->buf)
 		goto fail;
 	ecm->notify_req->context = ecm;

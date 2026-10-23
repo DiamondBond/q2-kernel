@@ -50,6 +50,7 @@ extern const char *usb_speed_string(enum usb_device_speed speed);
 extern enum usb_device_speed usb_get_maximum_speed(struct device *dev);
 extern enum usb_ssp_rate usb_get_maximum_ssp_rate(struct device *dev);
 extern const char *usb_state_string(enum usb_device_state state);
+extern const char *usb_power_string(enum usb_device_power type);
 unsigned int usb_decode_interval(const struct usb_endpoint_descriptor *epd,
 				 enum usb_device_speed speed);
 

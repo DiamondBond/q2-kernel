@@ -289,6 +289,22 @@ static struct stub_priv *stub_priv_pop_from_listhead(struct list_head *listhead)
 	return NULL;
 }
 
+static void stub_uncharge_inflight(struct stub_priv *priv)
+{
+	unsigned long bytes;
+
+	if (!priv || !priv->sdev)
+		return;
+
+	bytes = priv->inflight_bytes;
+	if (!bytes)
+		return;
+
+	atomic_long_sub(bytes, &priv->sdev->inflight_bytes);
+	priv->inflight_bytes = 0;
+	wake_up(&priv->sdev->inflight_waitq);
+}
+
 void stub_free_priv_and_urb(struct stub_priv *priv)
 {
 	struct urb *urb;
@@ -298,7 +314,7 @@ void stub_free_priv_and_urb(struct stub_priv *priv)
 		urb = priv->urbs[i];
 
 		if (!urb)
-			return;
+			continue;
 
 		kfree(urb->setup_packet);
 		urb->setup_packet = NULL;
@@ -318,10 +334,11 @@ void stub_free_priv_and_urb(struct stub_priv *priv)
 		usb_free_urb(urb);
 	}
 	if (!list_empty(&priv->list))
-		list_del(&priv->list);
+		list_del_init(&priv->list);
 	if (priv->sgl)
 		sgl_free(priv->sgl);
 	kfree(priv->urbs);
+	stub_uncharge_inflight(priv);
 	kmem_cache_free(stub_priv_cache, priv);
 }
 

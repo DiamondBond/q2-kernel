@@ -1,0 +1,17 @@
+ifneq ($(filter %scripts/Makefile.clean,$(MAKEFILE_LIST)),)
+ATBM_WIFI40_CLEANDIR := $(abspath $(if $(obj),$(obj),$(CURDIR)))
+$(if $(ATBM_WIFI40_CLEANDIR),$(shell if [ -d "$(ATBM_WIFI40_CLEANDIR)" ]; then \
+	cd "$(ATBM_WIFI40_CLEANDIR)" && \
+	find . -type f \( \
+		-name '.*.cmd' -o \
+		-name '*.cmd' -o \
+		-name '*.o' -o \
+		-name '*.ko' -o \
+		-name '*.mod' -o \
+		-name '*.order' \
+	\) -delete && \
+	rm -f modules.* Module.*; \
+fi))
+else
+include $(src)/Makefile
+endif

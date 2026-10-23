@@ -1,0 +1,89 @@
+#
+#makefile for build atbm_wifi.ko
+#
+###############################################################################
+#
+# when release to customer ,the DEBUG_MODE must set to n!!!!!!!!!!!!!
+#
+###############################################################################
+DEBUG_MODE=y
+###############################################################################
+#
+# when release to customer ,the CUSTOMER_SUPPORT_USED must set to y!!!!!!!!!!!!!
+#
+###############################################################################
+CUSTOMER_SUPPORT_USED=y
+###############################################################################
+#platform ?= PLATFORM_SIGMASTAR
+platform ?= PLATFORM_INGENICX2600
+#ATBM_BUILD_IN_KERNEL?=
+
+
+
+
+ifeq ($(platform),PLATFORM_INGENICX2600)
+export
+ATBM_WIFI__EXT_CCFLAGS ?= -DATBM_WIFI_PLATFORM=28
+endif
+
+
+ifeq ($(KERNELRELEASE),)
+export
+ATBM_BUILD_IN_KERNEL=n
+export DRIVER_PATH ?= $(shell pwd)
+#ifeq ($(CUSTOMER_SUPPORT_USED),y)
+MAKEFILE_SUB ?= Makefile.build.customer
+#else
+#MAKEFILE_SUB ?= Makefile.build
+#endif
+
+
+
+all:install
+
+install:
+	@echo "make PLATFORM_CROSS=$(platform)"
+	$(MAKE) all -f $(MAKEFILE_SUB) ARCH=$(arch)  CROSS_COMPILE=$(CROSS_COMPILE) KDIR=$(KERDIR) SYS=$(sys) PLAT=$(platform) -j8
+clean:
+	$(MAKE) -f $(MAKEFILE_SUB) KDIR=$(KERDIR) ARCH=$(arch) clean
+strip:	
+	$(MAKE) -f $(MAKEFILE_SUB) KDIR=$(KERDIR) ARCH=$(arch) SYS=$(sys) PLAT=$(platform) strip
+get_ver:
+	$(MAKE) -f $(MAKEFILE_SUB) KDIR=$(KERDIR) ARCH=$(arch) SYS=$(sys) PLAT=$(platform) get_ver
+#ble_demo:
+#	$(MAKE) ble_demo -f $(MAKEFILE_SUB) ARCH=$(arch)  CROSS_COMPILE=$(CROSS_COMPILE) KDIR=$(KERDIR) SYS=$(sys) PLAT=$(platform) -j8
+
+ble_stack:
+	@echo "start ble host"
+	$(MAKE) ble_stack -f $(MAKEFILE_SUB) ARCH=$(arch)  CROSS_COMPILE=$(CROSS_COMPILE) KDIR=$(KERDIR) SYS=$(sys) PLAT=$(platform) -j8
+ble_stack_clean:
+	$(MAKE) ble_stack_clean -f $(MAKEFILE_SUB) ARCH=$(arch)  CROSS_COMPILE=$(CROSS_COMPILE) KDIR=$(KERDIR) SYS=$(sys) PLAT=$(platform) -j8
+
+#ble_coex:
+#	$(MAKE) ble_coex -f $(MAKEFILE_SUB) ARCH=$(arch)  CROSS_COMPILE=$(CROSS_COMPILE) KDIR=$(KERDIR) SYS=$(sys) PLAT=$(platform) -j8
+
+	
+buid_config:
+	$(MAKE) -C atbm_kconf clean
+	$(MAKE) -C atbm_kconf mconf -f Makefile
+menuconfig:buid_config
+	@./atbm_kconf/mconf ./atbm_kconf/Kconfig
+
+
+else
+
+
+ifeq ($(ATBM_BUILD_IN_KERNEL),)
+$(warning "============>1")
+obj-m += hal_apollo/
+export ATBM_BUILD_IN_KERNEL=y
+
+else
+$(warning "============>2")
+export
+include $(src)/Makefile.build.kernel
+
+endif
+
+endif
+

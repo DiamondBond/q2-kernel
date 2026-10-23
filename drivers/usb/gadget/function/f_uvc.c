@@ -20,6 +20,7 @@
 #include <linux/usb/video.h>
 #include <linux/vmalloc.h>
 #include <linux/wait.h>
+#include <linux/dma-mapping.h>
 
 #include <media/v4l2-dev.h>
 #include <media/v4l2-event.h>
@@ -213,9 +214,8 @@ uvc_function_ep0_complete(struct usb_ep *ep, struct usb_request *req)
 
 		memset(&v4l2_event, 0, sizeof(v4l2_event));
 		v4l2_event.type = UVC_EVENT_DATA;
-		uvc_event->data.length = min_t(unsigned int, req->actual,
-			sizeof(uvc_event->data.data));
-		memcpy(&uvc_event->data.data, req->buf, uvc_event->data.length);
+		uvc_event->data.length = req->actual;
+		memcpy(&uvc_event->data.data, req->buf, req->actual);
 		v4l2_event_queue(&uvc->vdev, &v4l2_event);
 	}
 }
@@ -375,6 +375,32 @@ uvc_function_disable(struct usb_function *f)
 	usb_ep_disable(uvc->control_ep);
 }
 
+/* notify userspace to call shutdown procedure.*/
+static void
+uvc_function_shutdown(struct usb_function *f)
+{
+	struct uvc_device *uvc = to_uvc(f);
+	struct v4l2_event v4l2_event;
+	unsigned int timeout = 0;
+
+	INFO(f->config->cdev, "uvc_function_shutdown\n");
+
+	reinit_completion(&uvc->shutdown_complete);
+	memset(&v4l2_event, 0, sizeof(v4l2_event));
+	v4l2_event.type = UVC_EVENT_SHUTDOWN;
+	v4l2_event_queue(&uvc->vdev, &v4l2_event);
+
+	uvc->state = UVC_STATE_DISCONNECTED;
+
+	usb_ep_disable(uvc->video.ep);
+	usb_ep_disable(uvc->control_ep);
+
+	timeout = wait_for_completion_timeout(&uvc->shutdown_complete, msecs_to_jiffies(1000));
+	if(!timeout) {
+		INFO(f->config->cdev, "wait for app to shutdown uvc timeout!\n");
+	}
+}
+
 /* --------------------------------------------------------------------------
  * Connection / disconnection
  */
@@ -395,6 +421,8 @@ uvc_function_disconnect(struct uvc_device *uvc)
 
 	if ((ret = usb_function_deactivate(&uvc->func)) < 0)
 		uvcg_info(&uvc->func, "UVC disconnect failed with %d\n", ret);
+
+	complete(&uvc->shutdown_complete);
 }
 
 /* --------------------------------------------------------------------------
@@ -419,6 +447,7 @@ uvc_register_video(struct uvc_device *uvc)
 
 	/* TODO reference counting. */
 	uvc->vdev.v4l2_dev = &uvc->v4l2_dev;
+	uvc->vdev.v4l2_dev->dev = &cdev->gadget->dev;
 	uvc->vdev.fops = &uvc_v4l2_fops;
 	uvc->vdev.ioctl_ops = &uvc_v4l2_ioctl_ops;
 	uvc->vdev.release = video_device_release_empty;
@@ -634,7 +663,6 @@ uvc_function_bind(struct usb_configuration *c, struct usb_function *f)
 
 	uvc_hs_streaming_ep.wMaxPacketSize =
 		cpu_to_le16(max_packet_size | ((max_packet_mult - 1) << 11));
-
 	/* A high-bandwidth endpoint must specify a bInterval value of 1 */
 	if (max_packet_mult > 1)
 		uvc_hs_streaming_ep.bInterval = 1;
@@ -728,7 +756,9 @@ uvc_function_bind(struct usb_configuration *c, struct usb_function *f)
 
 	/* Preallocate control endpoint request. */
 	uvc->control_req = usb_ep_alloc_request(cdev->gadget->ep0, GFP_KERNEL);
-	uvc->control_buf = kmalloc(UVC_MAX_REQUEST_SIZE, GFP_KERNEL);
+	uvc->control_buf = kmalloc(ALIGN(UVC_MAX_REQUEST_SIZE,
+				dma_get_cache_alignment()),
+				GFP_KERNEL);
 	if (uvc->control_req == NULL || uvc->control_buf == NULL) {
 		ret = -ENOMEM;
 		goto error;
@@ -884,41 +914,16 @@ static void uvc_free(struct usb_function *f)
 	kfree(uvc);
 }
 
-static void uvc_function_unbind(struct usb_configuration *c,
-				struct usb_function *f)
+static void uvc_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct usb_composite_dev *cdev = c->cdev;
 	struct uvc_device *uvc = to_uvc(f);
-	long wait_ret = 1;
 
-	uvcg_info(f, "%s()\n", __func__);
-
-	/* If we know we're connected via v4l2, then there should be a cleanup
-	 * of the device from userspace either via UVC_EVENT_DISCONNECT or
-	 * though the video device removal uevent. Allow some time for the
-	 * application to close out before things get deleted.
-	 */
-	if (uvc->func_connected) {
-		uvcg_dbg(f, "waiting for clean disconnect\n");
-		wait_ret = wait_event_interruptible_timeout(uvc->func_connected_queue,
-				uvc->func_connected == false, msecs_to_jiffies(500));
-		uvcg_dbg(f, "done waiting with ret: %ld\n", wait_ret);
-	}
+	uvcg_info(f, "%s\n", __func__);
 
 	device_remove_file(&uvc->vdev.dev, &dev_attr_function_name);
 	video_unregister_device(&uvc->vdev);
 	v4l2_device_unregister(&uvc->v4l2_dev);
-
-	if (uvc->func_connected) {
-		/* Wait for the release to occur to ensure there are no longer any
-		 * pending operations that may cause panics when resources are cleaned
-		 * up.
-		 */
-		uvcg_warn(f, "%s no clean disconnect, wait for release\n", __func__);
-		wait_ret = wait_event_interruptible_timeout(uvc->func_connected_queue,
-				uvc->func_connected == false, msecs_to_jiffies(1000));
-		uvcg_dbg(f, "done waiting for release with ret: %ld\n", wait_ret);
-	}
 
 	usb_ep_free_request(cdev->gadget->ep0, uvc->control_req);
 	kfree(uvc->control_buf);
@@ -938,7 +943,6 @@ static struct usb_function *uvc_alloc(struct usb_function_instance *fi)
 
 	mutex_init(&uvc->video.mutex);
 	uvc->state = UVC_STATE_DISCONNECTED;
-	init_waitqueue_head(&uvc->func_connected_queue);
 	opts = fi_to_f_uvc_opts(fi);
 
 	mutex_lock(&opts->lock);
@@ -969,13 +973,16 @@ static struct usb_function *uvc_alloc(struct usb_function_instance *fi)
 	/* Register the function. */
 	uvc->func.name = "uvc";
 	uvc->func.bind = uvc_function_bind;
-	uvc->func.unbind = uvc_function_unbind;
+	uvc->func.unbind = uvc_unbind;
 	uvc->func.get_alt = uvc_function_get_alt;
 	uvc->func.set_alt = uvc_function_set_alt;
 	uvc->func.disable = uvc_function_disable;
+	uvc->func.shutdown = uvc_function_shutdown;
 	uvc->func.setup = uvc_function_setup;
 	uvc->func.free_func = uvc_free;
 	uvc->func.bind_deactivated = true;
+
+	init_completion(&uvc->shutdown_complete);
 
 	return &uvc->func;
 }

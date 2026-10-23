@@ -496,6 +496,12 @@ struct v4l2_ioctl_ops {
 	/* Crop ioctls */
 	int (*vidioc_g_pixelaspect)(struct file *file, void *fh,
 				    int buf_type, struct v4l2_fract *aspect);
+	int (*vidioc_cropcap)(struct file *file, void *fh,
+					struct v4l2_cropcap *a);
+	int (*vidioc_g_crop)(struct file *file, void *fh,
+					struct v4l2_crop *a);
+	int (*vidioc_s_crop)(struct file *file, void *fh,
+					const struct v4l2_crop *a);
 	int (*vidioc_g_selection)(struct file *file, void *fh,
 				  struct v4l2_selection *s);
 	int (*vidioc_s_selection)(struct file *file, void *fh,

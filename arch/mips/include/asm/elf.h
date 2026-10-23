@@ -348,6 +348,7 @@ do {									\
 	set_thread_flag(TIF_32BIT_FPREGS);				\
 									\
 	current->thread.abi = &mips_abi;				\
+	current->personality &= ~READ_IMPLIES_EXEC;			\
 									\
 	mips_set_personality_fp(state);					\
 	mips_set_personality_nan(state);				\

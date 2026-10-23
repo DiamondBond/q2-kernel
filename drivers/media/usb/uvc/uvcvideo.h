@@ -133,6 +133,11 @@
 #define UVC_GUID_FORMAT_H264 \
 	{ 'H',  '2',  '6',  '4', 0x00, 0x00, 0x10, 0x00, \
 	 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}
+
+#define UVC_GUID_FORMAT_H265 \
+	{ 'H',  '2',  '6',  '5', 0x00, 0x00, 0x10, 0x00, \
+	 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}
+
 #define UVC_GUID_FORMAT_Y8I \
 	{ 'Y',  '8',  'I',  ' ', 0x00, 0x00, 0x10, 0x00, \
 	 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}
@@ -534,6 +539,13 @@ struct uvc_urb {
 	char *buffer;
 	dma_addr_t dma;
 
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+	/* The position of uvc_urb in wait decode queue. */
+	struct list_head queue;
+	/* Save the starting position of the next decode. */
+	int decode_packet_index;
+#endif
+
 	unsigned int async_operations;
 	struct uvc_copy_op copy_operations[UVC_MAX_PACKETS];
 	struct work_struct work;
@@ -570,7 +582,7 @@ struct uvc_streaming {
 	unsigned int frozen : 1;
 	struct uvc_video_queue queue;
 	struct workqueue_struct *async_wq;
-	void (*decode)(struct uvc_urb *uvc_urb, struct uvc_buffer *buf,
+	int (*decode)(struct uvc_urb *uvc_urb, struct uvc_buffer *buf,
 		       struct uvc_buffer *meta_buf);
 
 	struct {
@@ -590,6 +602,13 @@ struct uvc_streaming {
 
 	struct uvc_urb uvc_urb[UVC_URBS];
 	unsigned int urb_size;
+
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+	spinlock_t wait_queue_lock;
+	struct list_head wait_queue;
+
+	struct work_struct retry_decode;
+#endif
 
 	u32 sequence;
 	u8 last_fid;
@@ -874,7 +893,7 @@ struct usb_host_endpoint *uvc_find_endpoint(struct usb_host_interface *alts,
 					    u8 epaddr);
 
 /* Quirks support */
-void uvc_video_decode_isight(struct uvc_urb *uvc_urb,
+int uvc_video_decode_isight(struct uvc_urb *uvc_urb,
 			     struct uvc_buffer *buf,
 			     struct uvc_buffer *meta_buf);
 

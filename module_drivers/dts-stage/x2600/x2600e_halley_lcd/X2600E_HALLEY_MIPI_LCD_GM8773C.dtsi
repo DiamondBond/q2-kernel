@@ -1,0 +1,38 @@
+&dpu {
+	status = "okay";
+	ingenic,disable-rdma-fb = <1>;
+	ingenic,compfb_wback_out = <0>;
+	ingenic,rot_angle = <0>;
+	/*Defines the init state of composer fb export infomations.*/
+	ingenic,layer-exported = <1 1 0 0>;
+	ingenic,layer-frames   = <2 2 2 2>;
+	ingenic,layer-framesize = <400 640>, <400 640>, <320 240>, <320 240>;	/*Max framesize for each layer.*/
+	layer,color_mode	= <0 0 0 0>;						/*src fmt,*/
+	layer,src-size		= <400 640>, <400 640>, <320 240>, <240 200>;	/*Layer src size should smaller than framesize*/
+	layer,target-size	= <800 1280>, <800 1280>, <160 240>, <240 200>;	/*Target Size should smaller than src_size.*/
+	layer,target-pos	= <0 0>, <800 0>, <340 480>, <100 980>;			/*target pos , the start point of the target panel.*/
+	layer,enable		= <1 1 0 0>;						/*layer enabled or disabled.*/
+	ingenic,logo-pan-layer	= <0>;							/*on which layer should init logo pan on.*/
+	memory-region = <&reserved_memory>;
+};
+
+&i2c3 {
+	status = "okay";
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pe>;
+	timeout = <1000>;
+
+	gm8773c@56 {
+		status = "okay";
+		compatible = "ingenic,gm8773c";
+		reg = <0x56>;
+		gm8773c,panel_name = "gm8773c-jd9365da";
+		jd9365da,vdden1-gpio = <&gpc 8 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		jd9365da,vdden2-gpio = <&gpc 19 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		jd9365da,pwm1-gpio = <&gpe 2 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		jd9365da,pwm2-gpio = <&gpc 12 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		jd9365da,reset1-gpio = <&gpc 7 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		jd9365da,reset2-gpio = <&gpc 18 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+	};
+};

@@ -8,6 +8,8 @@ obj-$(CONFIG_SERIAL_CORE) += serial_core.o
 obj-$(CONFIG_SERIAL_EARLYCON) += earlycon.o
 obj-$(CONFIG_SERIAL_EARLYCON_ARM_SEMIHOST) += earlycon-arm-semihost.o
 obj-$(CONFIG_SERIAL_EARLYCON_RISCV_SBI) += earlycon-riscv-sbi.o
+obj-$(CONFIG_SERIAL_GPIO_SPI_TO_UART) += gpio_spi_to_uart.o
+obj-$(CONFIG_SERIAL_GPIO_SPI_TO_UART2) += gpio_spi_to_uart2.o
 
 # These Sparc drivers have to appear before others such as 8250
 # which share ttySx minor node space.  Otherwise console device

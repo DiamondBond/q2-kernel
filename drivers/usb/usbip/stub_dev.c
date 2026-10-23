@@ -288,6 +288,8 @@ static struct stub_device *stub_device_alloc(struct usb_device *udev)
 	spin_lock_init(&sdev->priv_lock);
 
 	init_waitqueue_head(&sdev->tx_waitq);
+	init_waitqueue_head(&sdev->inflight_waitq);
+	atomic_long_set(&sdev->inflight_bytes, 0);
 
 	sdev->ud.eh_ops.shutdown = stub_shutdown_connection;
 	sdev->ud.eh_ops.reset    = stub_device_reset;
@@ -462,8 +464,13 @@ static void stub_disconnect(struct usb_device *udev)
 	/* release port */
 	rc = usb_hub_release_port(udev->parent, udev->portnum,
 				  (struct usb_dev_state *) udev);
-	if (rc) {
-		dev_dbg(&udev->dev, "unable to release port\n");
+	/*
+	 * NOTE: If a HUB disconnect triggered disconnect of the down stream
+	 * device usb_hub_release_port will return -ENODEV so we can safely ignore
+	 * that error here.
+	 */
+	if (rc && (rc != -ENODEV)) {
+		dev_dbg(&udev->dev, "unable to release port (%i)\n", rc);
 		return;
 	}
 

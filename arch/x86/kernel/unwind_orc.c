@@ -93,27 +93,22 @@ static struct orc_entry *orc_find(unsigned long ip);
 static struct orc_entry *orc_ftrace_find(unsigned long ip)
 {
 	struct ftrace_ops *ops;
-	unsigned long tramp_addr, offset;
+	unsigned long caller;
 
 	ops = ftrace_ops_trampoline(ip);
 	if (!ops)
 		return NULL;
 
-	/* Set tramp_addr to the start of the code copied by the trampoline */
 	if (ops->flags & FTRACE_OPS_FL_SAVE_REGS)
-		tramp_addr = (unsigned long)ftrace_regs_caller;
+		caller = (unsigned long)ftrace_regs_call;
 	else
-		tramp_addr = (unsigned long)ftrace_caller;
-
-	/* Now place tramp_addr to the location within the trampoline ip is at */
-	offset = ip - ops->trampoline;
-	tramp_addr += offset;
+		caller = (unsigned long)ftrace_call;
 
 	/* Prevent unlikely recursion */
-	if (ip == tramp_addr)
+	if (ip == caller)
 		return NULL;
 
-	return orc_find(tramp_addr);
+	return orc_find(caller);
 }
 #else
 static struct orc_entry *orc_ftrace_find(unsigned long ip)
@@ -372,8 +367,8 @@ static bool deref_stack_regs(struct unwind_state *state, unsigned long addr,
 	if (!stack_access_ok(state, addr, sizeof(struct pt_regs)))
 		return false;
 
-	*ip = READ_ONCE_NOCHECK(regs->ip);
-	*sp = READ_ONCE_NOCHECK(regs->sp);
+	*ip = regs->ip;
+	*sp = regs->sp;
 	return true;
 }
 
@@ -385,8 +380,8 @@ static bool deref_stack_iret_regs(struct unwind_state *state, unsigned long addr
 	if (!stack_access_ok(state, addr, IRET_FRAME_SIZE))
 		return false;
 
-	*ip = READ_ONCE_NOCHECK(regs->ip);
-	*sp = READ_ONCE_NOCHECK(regs->sp);
+	*ip = regs->ip;
+	*sp = regs->sp;
 	return true;
 }
 
@@ -407,12 +402,12 @@ static bool get_reg(struct unwind_state *state, unsigned int reg_off,
 		return false;
 
 	if (state->full_regs) {
-		*val = READ_ONCE_NOCHECK(((unsigned long *)state->regs)[reg]);
+		*val = ((unsigned long *)state->regs)[reg];
 		return true;
 	}
 
 	if (state->prev_regs) {
-		*val = READ_ONCE_NOCHECK(((unsigned long *)state->prev_regs)[reg]);
+		*val = ((unsigned long *)state->prev_regs)[reg];
 		return true;
 	}
 
@@ -697,7 +692,7 @@ void __unwind_start(struct unwind_state *state, struct task_struct *task,
 	/* Otherwise, skip ahead to the user-specified starting frame: */
 	while (!unwind_done(state) &&
 	       (!on_stack(&state->stack_info, first_frame, sizeof(long)) ||
-			state->sp <= (unsigned long)first_frame))
+			state->sp < (unsigned long)first_frame))
 		unwind_next_frame(state);
 
 	return;

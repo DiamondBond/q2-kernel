@@ -1,0 +1,4 @@
+#seekwave`s wifi bluetooth device driver etc
+source "module_drivers/drivers/net/wireless/seekwave_swt6621s/seekwaveplatform_lite/Kconfig"
+source "module_drivers/drivers/net/wireless/seekwave_swt6621s/swt6621s_wifi/Kconfig"
+source "module_drivers/drivers/net/wireless/seekwave_swt6621s/swtbt4l/Kconfig"

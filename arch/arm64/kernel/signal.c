@@ -29,7 +29,6 @@
 #include <asm/unistd.h>
 #include <asm/fpsimd.h>
 #include <asm/ptrace.h>
-#include <asm/syscall.h>
 #include <asm/signal32.h>
 #include <asm/traps.h>
 #include <asm/vdso.h>
@@ -572,12 +571,10 @@ static int setup_sigframe_layout(struct rt_sigframe_user_layout *user,
 {
 	int err;
 
-	if (system_supports_fpsimd()) {
-		err = sigframe_alloc(user, &user->fpsimd_offset,
-				     sizeof(struct fpsimd_context));
-		if (err)
-			return err;
-	}
+	err = sigframe_alloc(user, &user->fpsimd_offset,
+			     sizeof(struct fpsimd_context));
+	if (err)
+		return err;
 
 	/* fault information, if valid */
 	if (add_all || current->thread.fault_code) {
@@ -893,7 +890,7 @@ static void do_signal(struct pt_regs *regs)
 		     retval == -ERESTART_RESTARTBLOCK ||
 		     (retval == -ERESTARTSYS &&
 		      !(ksig.ka.sa.sa_flags & SA_RESTART)))) {
-			syscall_set_return_value(current, regs, -EINTR, 0);
+			regs->regs[0] = -EINTR;
 			regs->pc = continue_addr;
 		}
 
@@ -938,7 +935,7 @@ asmlinkage void do_notify_resume(struct pt_regs *regs,
 					       (void __user *)NULL, current);
 			}
 
-			if (thread_flags & (_TIF_SIGPENDING | _TIF_NOTIFY_SIGNAL))
+			if (thread_flags & _TIF_SIGPENDING)
 				do_signal(regs);
 
 			if (thread_flags & _TIF_NOTIFY_RESUME) {

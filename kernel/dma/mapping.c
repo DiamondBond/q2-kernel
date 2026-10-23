@@ -449,7 +449,7 @@ void dma_free_attrs(struct device *dev, size_t size, void *cpu_addr,
 {
 	const struct dma_map_ops *ops = get_dma_ops(dev);
 
-	if (dma_release_from_dev_coherent(dev, get_order(size), cpu_addr))
+	if (dma_release_from_dev_coherent(dev, size, cpu_addr))
 		return;
 	/*
 	 * On non-coherent platforms which implement DMA-coherent buffers via
@@ -517,9 +517,24 @@ void *dma_alloc_noncoherent(struct device *dev, size_t size,
 	const struct dma_map_ops *ops = get_dma_ops(dev);
 	void *vaddr;
 
+
+	/* 1. Try to alloc from dev coheren area.(reserved_mem pool) */
+	if(dma_alloc_from_dev_coherent(dev, size, dma_handle, &vaddr)) {
+		if(vaddr != NULL)
+			return (void *)CKSEG0ADDR(vaddr);
+	}
+
+	/* 2. Generic DMA allocation path. */
 	if (!ops || !ops->alloc_noncoherent) {
 		struct page *page;
 
+		/*
+		 * Allocation priority:
+		 * 1) CMA/contiguous memory
+		 *    - dev->cma_area
+		 *    - global default CMA
+		 * 2) normal buddy pages
+		*/
 		page = dma_alloc_pages(dev, size, dma_handle, dir, gfp);
 		if (!page)
 			return NULL;
@@ -539,6 +554,10 @@ void dma_free_noncoherent(struct device *dev, size_t size, void *vaddr,
 		dma_addr_t dma_handle, enum dma_data_direction dir)
 {
 	const struct dma_map_ops *ops = get_dma_ops(dev);
+
+	if(dma_release_from_dev_coherent(dev, size, (void *)CKSEG1ADDR(vaddr))) {
+		return;
+	}
 
 	if (!ops || !ops->free_noncoherent) {
 		dma_free_pages(dev, size, virt_to_page(vaddr), dma_handle, dir);

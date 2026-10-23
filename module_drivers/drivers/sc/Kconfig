@@ -1,0 +1,4 @@
+
+source "module_drivers/drivers/sc/sc-v2/Kconfig"
+source "module_drivers/drivers/sc/sc-v4/Kconfig"
+

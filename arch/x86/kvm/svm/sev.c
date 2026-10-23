@@ -124,31 +124,15 @@ static void sev_asid_free(int asid)
 
 	for_each_possible_cpu(cpu) {
 		sd = per_cpu(svm_data, cpu);
-		sd->sev_vmcbs[asid] = NULL;
+		sd->sev_vmcbs[pos] = NULL;
 	}
 
 	mutex_unlock(&sev_bitmap_lock);
 }
 
-static void sev_decommission(unsigned int handle)
-{
-	struct sev_data_decommission *decommission;
-
-	if (!handle)
-		return;
-
-	decommission = kzalloc(sizeof(*decommission), GFP_KERNEL);
-	if (!decommission)
-		return;
-
-	decommission->handle = handle;
-	sev_guest_decommission(decommission, NULL);
-
-	kfree(decommission);
-}
-
 static void sev_unbind_asid(struct kvm *kvm, unsigned int handle)
 {
+	struct sev_data_decommission *decommission;
 	struct sev_data_deactivate *data;
 
 	if (!handle)
@@ -168,16 +152,21 @@ static void sev_unbind_asid(struct kvm *kvm, unsigned int handle)
 
 	kfree(data);
 
-	sev_decommission(handle);
+	decommission = kzalloc(sizeof(*decommission), GFP_KERNEL);
+	if (!decommission)
+		return;
+
+	/* decommission handle */
+	decommission->handle = handle;
+	sev_guest_decommission(decommission, NULL);
+
+	kfree(decommission);
 }
 
 static int sev_guest_init(struct kvm *kvm, struct kvm_sev_cmd *argp)
 {
 	struct kvm_sev_info *sev = &to_kvm_svm(kvm)->sev_info;
 	int asid, ret;
-
-	if (kvm->created_vcpus)
-		return -EINVAL;
 
 	ret = -EBUSY;
 	if (unlikely(sev->active))
@@ -296,10 +285,8 @@ static int sev_launch_start(struct kvm *kvm, struct kvm_sev_cmd *argp)
 
 	/* Bind ASID to this guest */
 	ret = sev_bind_asid(kvm, start->handle, error);
-	if (ret) {
-		sev_decommission(start->handle);
+	if (ret)
 		goto e_free_session;
-	}
 
 	/* return handle to userspace */
 	params.handle = start->handle;
@@ -537,7 +524,7 @@ static int sev_launch_measure(struct kvm *kvm, struct kvm_sev_cmd *argp)
 		}
 
 		ret = -ENOMEM;
-		blob = kzalloc(params.len, GFP_KERNEL_ACCOUNT);
+		blob = kmalloc(params.len, GFP_KERNEL);
 		if (!blob)
 			goto e_free;
 
@@ -676,7 +663,7 @@ static int __sev_dbg_decrypt_user(struct kvm *kvm, unsigned long paddr,
 	if (!IS_ALIGNED(dst_paddr, 16) ||
 	    !IS_ALIGNED(paddr,     16) ||
 	    !IS_ALIGNED(size,      16)) {
-		tpage = (void *)alloc_page(GFP_KERNEL | __GFP_ZERO);
+		tpage = (void *)alloc_page(GFP_KERNEL);
 		if (!tpage)
 			return -ENOMEM;
 
@@ -1175,14 +1162,6 @@ void sev_hardware_teardown(void)
 	bitmap_free(sev_reclaim_asid_bitmap);
 
 	sev_flush_asids();
-}
-
-void sev_guest_memory_reclaimed(struct kvm *kvm)
-{
-	if (!sev_guest(kvm))
-		return;
-
-	wbinvd_on_all_cpus();
 }
 
 void pre_sev_run(struct vcpu_svm *svm, int cpu)

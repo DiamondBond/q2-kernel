@@ -1,0 +1,4 @@
+config WIRELESS_88W8987
+	tristate "nxp 88W8987 SDIO WiFi"
+	help
+	  Help message of 88W8987

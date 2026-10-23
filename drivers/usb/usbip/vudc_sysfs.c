@@ -183,10 +183,10 @@ static ssize_t usbip_sockfd_store(struct device *dev,
 		spin_unlock_irq(&udc->ud.lock);
 
 		ktime_get_ts64(&udc->start_time);
-		v_start_timer(udc);
 		udc->connected = 1;
 
 		spin_unlock_irqrestore(&udc->lock, flags);
+		v_start_timer(udc);
 
 		wake_up_process(udc->ud.tcp_rx);
 		wake_up_process(udc->ud.tcp_tx);

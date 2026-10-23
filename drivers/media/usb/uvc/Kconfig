@@ -9,6 +9,17 @@ config USB_VIDEO_CLASS
 
 	  For more information see: <http://linux-uvc.berlios.de/>
 
+config UVC_DISABLE_FRAME_DROPPING
+	bool "Host UVC does not activly drop frame data"
+	depends on USB_VIDEO_CLASS
+	default n
+	help
+	  Avoid actively dropping frame data due to lack of buffer,
+	  which will help decode the image content correctly,
+	  such as decoding H264 to display.
+	  If you want to retain the received frame as much as possible,
+	  say Y.
+
 config USB_VIDEO_CLASS_INPUT_EVDEV
 	bool "UVC input events device support"
 	default y

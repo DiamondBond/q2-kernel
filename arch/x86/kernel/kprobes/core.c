@@ -37,7 +37,6 @@
 #include <linux/extable.h>
 #include <linux/kdebug.h>
 #include <linux/kallsyms.h>
-#include <linux/kgdb.h>
 #include <linux/ftrace.h>
 #include <linux/kasan.h>
 #include <linux/moduleloader.h>
@@ -160,8 +159,6 @@ NOKPROBE_SYMBOL(skip_prefixes);
 int can_boost(struct insn *insn, void *addr)
 {
 	kprobe_opcode_t opcode;
-	insn_byte_t prefix;
-	int i;
 
 	if (search_exception_tables((unsigned long)addr))
 		return 0;	/* Page fault may occur on this address. */
@@ -174,14 +171,9 @@ int can_boost(struct insn *insn, void *addr)
 	if (insn->opcode.nbytes != 1)
 		return 0;
 
-	for_each_insn_prefix(insn, i, prefix) {
-		insn_attr_t attr;
-
-		attr = inat_get_opcode_attribute(prefix);
-		/* Can't boost Address-size override prefix and CS override prefix */
-		if (prefix == 0x2e || inat_is_address_size_prefix(attr))
-			return 0;
-	}
+	/* Can't boost Address-size override prefix */
+	if (unlikely(inat_is_address_size_prefix(insn->attr)))
+		return 0;
 
 	opcode = insn->opcode.bytes[0];
 
@@ -206,8 +198,8 @@ int can_boost(struct insn *insn, void *addr)
 		/* clear and set flags are boostable */
 		return (opcode == 0xf5 || (0xf7 < opcode && opcode < 0xfe));
 	default:
-		/* call is not boostable */
-		return opcode != 0x9a;
+		/* CS override prefix and call are not boostable */
+		return (opcode != 0x2e && opcode != 0x9a);
 	}
 }
 
@@ -293,8 +285,6 @@ static int can_probe(unsigned long paddr)
 	/* Decode instructions */
 	addr = paddr - offset;
 	while (addr < paddr) {
-		int ret;
-
 		/*
 		 * Check if the instruction has been modified by another
 		 * kprobe, in which case we replace the breakpoint by the
@@ -306,20 +296,15 @@ static int can_probe(unsigned long paddr)
 		__addr = recover_probed_instruction(buf, addr);
 		if (!__addr)
 			return 0;
+		kernel_insn_init(&insn, (void *)__addr, MAX_INSN_SIZE);
+		insn_get_length(&insn);
 
-		ret = insn_decode(&insn, (void *)__addr, MAX_INSN_SIZE, INSN_MODE_KERN);
-		if (ret < 0)
-			return 0;
-
-#ifdef CONFIG_KGDB
 		/*
-		 * If there is a dynamically installed kgdb sw breakpoint,
-		 * this function should not be probed.
+		 * Another debugging subsystem might insert this breakpoint.
+		 * In that case, we can't recover it.
 		 */
-		if (insn.opcode.bytes[0] == INT3_INSN_OPCODE &&
-		    kgdb_has_hit_break(addr))
+		if (insn.opcode.bytes[0] == INT3_INSN_OPCODE)
 			return 0;
-#endif
 		addr += insn.length;
 	}
 
@@ -355,8 +340,8 @@ static int is_IF_modifier(kprobe_opcode_t *insn)
 int __copy_instruction(u8 *dest, u8 *src, u8 *real, struct insn *insn)
 {
 	kprobe_opcode_t buf[MAX_INSN_SIZE];
-	unsigned long recovered_insn = recover_probed_instruction(buf, (unsigned long)src);
-	int ret;
+	unsigned long recovered_insn =
+		recover_probed_instruction(buf, (unsigned long)src);
 
 	if (!recovered_insn || !insn)
 		return 0;
@@ -366,9 +351,8 @@ int __copy_instruction(u8 *dest, u8 *src, u8 *real, struct insn *insn)
 			MAX_INSN_SIZE))
 		return 0;
 
-	ret = insn_decode(insn, dest, MAX_INSN_SIZE, INSN_MODE_KERN);
-	if (ret < 0)
-		return 0;
+	kernel_insn_init(insn, dest, MAX_INSN_SIZE);
+	insn_get_length(insn);
 
 	/* We can not probe force emulate prefixed instruction */
 	if (insn_has_emulate_prefix(insn))
@@ -777,7 +761,7 @@ asm(
 	RESTORE_REGS_STRING
 	"	popfl\n"
 #endif
-	ASM_RET
+	"	ret\n"
 	".size kretprobe_trampoline, .-kretprobe_trampoline\n"
 );
 NOKPROBE_SYMBOL(kretprobe_trampoline);

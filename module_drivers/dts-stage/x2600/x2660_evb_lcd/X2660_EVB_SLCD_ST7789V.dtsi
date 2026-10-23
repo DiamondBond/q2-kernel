@@ -1,0 +1,70 @@
+&dpu {
+	status = "okay";
+	ingenic,disable-rdma-fb = <0>;
+	ingenic,rot_angle = <0>;
+	//Defines the init state of composer fb export infomations.
+	ingenic,layer-exported = <1 0 0 0>;
+	ingenic,layer-frames   = <2 2 2 2>;
+	ingenic,layer-framesize = <240 320>, <240 320>, <240 320>, <240 320>;   //Max framesize for each layer.
+	layer,color_mode        = <0 0 0 0>;                                    //src fmt,
+	layer,src-size          = <240 320>, <240 320>, <240 320>, <240 320>;   //Layer src size should smaller than framesize
+        layer,target-size       = <240 320>, <240 320>, <240 320>, <240 320>;   //Target Size should smaller than src_size.
+	layer,target-pos        = <0 0>, <0 0>, <0 0>, <0 0>;			//target pos , the start point of the target panel.
+	layer,enable            = <1 0 0 0>;                                    //layer enabled or disabled.
+	ingenic,logo-pan-layer  = <0>;                                          //on which layer should init logo pan on.
+	port {
+		dpu_out_ep: endpoint {
+		    remote-endpoint = <&panel_st7789v_ep>;
+	    };
+	};
+};
+
+/*SLCD*/
+/ {
+
+	display-dbi {
+		compatible = "simple-bus";
+		#interrupt-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <>;
+		panel_st7789v {
+			compatible = "ingenic,st7789v";
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&smart_lcd_pb>;
+			ingenic,vdd-en-gpio = <&gpc 5 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			ingenic,rst-gpio = <&gpc 12 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			ingenic,rd-gpio = <&gpb 31 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			port {
+				panel_st7789v_ep: endpoint {
+					remote-endpoint = <&dpu_out_ep>;
+				};
+			};
+		};
+	};
+
+};
+
+&i2c1 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	status = "okay";
+	pinctrl-0 = <&i2c1_pc>;
+
+	goodix@38{
+		compatible = "goodix,ft6236";
+		reg = <0x38>;
+		interrupt-parent = <&gpc>;
+		interrupts = <9>;
+		reset-gpios = <&gpc 1 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;	/* RST pin */
+		irq-gpios = <&gpc 0 IRQ_TYPE_EDGE_FALLING INGENIC_GPIO_NOBIAS>; /* INT pin */
+		touchscreen-max-x = <240>;
+		touchscreen-max-y = <320>;
+		touchscreen-invert-x = <0>;
+		touchscreen-invert-y = <0>;
+		ft6236,swap-x2y = <0>;
+		irq-flags = <2>; /* 1 rising, 2 falling */
+	};
+};
+

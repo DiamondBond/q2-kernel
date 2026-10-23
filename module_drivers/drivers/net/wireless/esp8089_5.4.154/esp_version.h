@@ -1,0 +1,2 @@
+#define DRIVER_VER 0x8ca74364f124ll
+#define NEWLAND_DRIVER_VER "V002"

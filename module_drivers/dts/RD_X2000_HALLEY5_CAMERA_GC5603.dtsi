@@ -1,0 +1,29 @@
+&i2c4 {
+	status = "okay";
+	clock-frequency = <100000>;
+	timeout = <1000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c4_pd>;
+
+	/*RD_X2000_HALLEY5_CAMERA_V7.0 MIPI ir interface*/
+	gc5603_0:gc5603@31 {
+		status = "ok";
+		compatible = "galaxyc,gc5603";
+		reg = <0x31>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cim_vic_mclk_pe>;
+
+		ingenic,rst-gpio = <&gpd 5 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+
+		port {
+			gc5603_ep0:endpoint {
+				remote-endpoint = <&isp0_ep>;
+			};
+		};
+	};
+};
+&isp0_ep {
+	remote-endpoint = <&gc5603_ep0>;
+	data-lanes = <0 1>;
+	clk-lanes = <2>;
+};

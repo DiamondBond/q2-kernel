@@ -1,0 +1,5 @@
+source configs/$1.env
+scripts/get_debug_fw.sh
+scripts/build.sh $1
+chmod a+rw eagle.ko
+chmod a+rw wlan.ko

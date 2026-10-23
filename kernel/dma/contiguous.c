@@ -412,9 +412,18 @@ static int __init rmem_cma_setup(struct reserved_mem *rmem)
 		return -EBUSY;
 	}
 
+	/*
+	 * 非默认的Reserved memory管理 (模块不独享内存，空闲不用时可共享给系统使用)
+	 *
+	 * 若想使用这种类型的Reserved_mem, 则还需要
+	 * 1：menuconfig 配置 CMA + DMA_CMA
+	 * 2：dts 中为该 reserved-memory 节点设置 reusable属性
+	*/
 	if (!of_get_flat_dt_prop(node, "reusable", NULL) ||
-	    of_get_flat_dt_prop(node, "no-map", NULL))
+	    of_get_flat_dt_prop(node, "no-map", NULL)) {
+		pr_err("Reserved memory: CMA memory pool config matching [FAILED]\n");
 		return -EINVAL;
+		}
 
 	if ((rmem->base & mask) || (rmem->size & mask)) {
 		pr_err("Reserved memory: incorrect alignment of CMA region\n");
@@ -435,8 +444,8 @@ static int __init rmem_cma_setup(struct reserved_mem *rmem)
 	rmem->ops = &rmem_cma_ops;
 	rmem->priv = cma;
 
-	pr_info("Reserved memory: created CMA memory pool at %pa, size %ld MiB\n",
-		&rmem->base, (unsigned long)rmem->size / SZ_1M);
+	pr_info("Reserved memory: created CMA memory pool at %pa, size %ld MiB, %ld KiB [OK]\n",
+		&rmem->base, (unsigned long)rmem->size / SZ_1M, (unsigned long)rmem->size/SZ_1K);
 
 	return 0;
 }

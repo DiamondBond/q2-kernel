@@ -19,7 +19,8 @@
 #define UVC_EVENT_STREAMOFF		(V4L2_EVENT_PRIVATE_START + 3)
 #define UVC_EVENT_SETUP			(V4L2_EVENT_PRIVATE_START + 4)
 #define UVC_EVENT_DATA			(V4L2_EVENT_PRIVATE_START + 5)
-#define UVC_EVENT_LAST			(V4L2_EVENT_PRIVATE_START + 5)
+#define UVC_EVENT_SHUTDOWN		(V4L2_EVENT_PRIVATE_START + 6)
+#define UVC_EVENT_LAST			(V4L2_EVENT_PRIVATE_START + 6)
 
 struct uvc_request_data {
 	__s32 length;
@@ -34,6 +35,12 @@ struct uvc_event {
 	};
 };
 
+struct uvc_interface_id {
+	__u32 control_intf_id;
+	__u32 streaming_intf_id;
+};
+
 #define UVCIOC_SEND_RESPONSE		_IOW('U', 1, struct uvc_request_data)
+#define UVCIOC_GET_INTF_CONTROL_STREAMING	_IOR('U', 2, struct uvc_interface_id)
 
 #endif /* __LINUX_USB_G_UVC_H */

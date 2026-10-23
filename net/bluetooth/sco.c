@@ -869,7 +869,8 @@ static int sco_sock_setsockopt(struct socket *sock, int level, int optname,
 
 		/* Explicitly check for these values */
 		if (voice.setting != BT_VOICE_TRANSPARENT &&
-		    voice.setting != BT_VOICE_CVSD_16BIT) {
+		    voice.setting != BT_VOICE_CVSD_16BIT &&
+			voice.setting != BT_VOICE_mSBC_16BIT) {
 			err = -EINVAL;
 			break;
 		}

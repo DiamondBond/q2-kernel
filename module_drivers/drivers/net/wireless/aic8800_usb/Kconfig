@@ -1,0 +1,10 @@
+config AIC_USB_WLAN_SUPPORT
+	bool "AIC usb wireless Support"
+	default n
+	help
+	  This is support for aic usb wireless chip.
+
+if AIC_USB_WLAN_SUPPORT
+source "module_drivers/drivers/net/wireless/aic8800_usb/aic8800_fdrv/Kconfig"
+source "module_drivers/drivers/net/wireless/aic8800_usb/aic_load_fw/Kconfig"
+endif

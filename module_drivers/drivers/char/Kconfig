@@ -1,0 +1,46 @@
+config INGENIC_CDBUS
+	bool "[CDBUS] Ingenic Cdbus Driver"
+	default y
+	help
+		Say Y here if you want to use cdbus communication function.
+		when in doubt , Say N here.
+
+config INGENIC_NEMC
+	bool "[NEMC] Ingenic Nemc Driver"
+	default n
+	help
+		Say Y here if you want to use cdbus communication function.
+		when in doubt , Say N here.
+
+config INGENIC_PWM_AUDIO
+	bool "[PWM-AUDIO] Ingenic Pwm Audio Driver"
+	depends on PWM_INGENIC_V3
+	default n
+	help
+		Say Y here if you want to use pwm audio function.
+		when in doubt , Say N here.
+
+config INGENIC_PWM_SMC
+	bool "[PWM-SMC] Ingenic Pwm SMC Driver"
+	depends on PWM_INGENIC_V3
+	default n
+	help
+		Say Y here if you want to use pwm scan function.
+		when in doubt , Say N here.
+
+config INGENIC_PWM_GEN
+	bool "[PWM-GEN] Ingenic Pwm generate Driver"
+	depends on  SOC_X2000 && PWM_INGENIC_V2
+	default n
+	help
+		Say Y here if you want to use pwm scan function.
+		when in doubt , Say N here.
+
+config INGENIC_PWM_DMA
+	bool "[PWM-DMA] Ingenic Pwm Dma Driver"
+	depends on PWM_INGENIC_V3
+	default n
+	help
+		Say Y here if you want to use pwm dma function.
+		when in doubt , Say N here.
+

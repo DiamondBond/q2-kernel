@@ -1049,6 +1049,16 @@ static int uvc_video_decode_start(struct uvc_streaming *stream,
 
 	fid = data[1] & UVC_STREAM_FID;
 
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+	/*
+	 * Avoid actively droping frames due to lack of buf. Not updating 
+	 * relevant status information facilitates subsequent retry decoding and then
+	 * immediate return.
+	 */
+	if (buf == NULL)
+		return -ENOSPC;
+#endif
+
 	/* Increase the sequence number regardless of any buffer states, so
 	 * that discontinuous sequence numbers always indicate lost frames.
 	 */
@@ -1141,6 +1151,11 @@ static void uvc_video_copy_data_work(struct work_struct *work)
 	unsigned int i;
 	int ret;
 
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+	struct uvc_streaming *stream = uvc_urb->stream;
+	unsigned long flags;
+#endif
+
 	for (i = 0; i < uvc_urb->async_operations; i++) {
 		struct uvc_copy_op *op = &uvc_urb->copy_operations[i];
 
@@ -1149,6 +1164,22 @@ static void uvc_video_copy_data_work(struct work_struct *work)
 		/* Release reference taken on this buffer. */
 		uvc_queue_buffer_release(op->buf);
 	}
+
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+	spin_lock_irqsave(&stream->wait_queue_lock, flags);
+	/*
+	 * If the entire uvc_urb has been decoded completely,
+	 * we will call list_del_init init its queue.
+	 * Therefore, we are checking the status of the queue here to 
+	 * confirm whether the urb has been processed completely and
+	 * whether it can be submitted.
+	 */
+	if (uvc_urb->queue.next != &uvc_urb->queue) {
+		spin_unlock_irqrestore(&stream->wait_queue_lock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(&stream->wait_queue_lock, flags);
+#endif
 
 	ret = usb_submit_urb(uvc_urb->urb, GFP_KERNEL);
 	if (ret < 0)
@@ -1363,7 +1394,7 @@ static void uvc_video_next_buffers(struct uvc_streaming *stream,
 	*video_buf = uvc_queue_next_buffer(&stream->queue, *video_buf);
 }
 
-static void uvc_video_decode_isoc(struct uvc_urb *uvc_urb,
+static int uvc_video_decode_isoc(struct uvc_urb *uvc_urb,
 			struct uvc_buffer *buf, struct uvc_buffer *meta_buf)
 {
 	struct urb *urb = uvc_urb->urb;
@@ -1371,12 +1402,21 @@ static void uvc_video_decode_isoc(struct uvc_urb *uvc_urb,
 	u8 *mem;
 	int ret, i;
 
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+	/* Continue processing from the last paused position. */
+	for (i = uvc_urb->decode_packet_index; i < urb->number_of_packets; ++i) {
+#else
 	for (i = 0; i < urb->number_of_packets; ++i) {
+#endif
 		if (urb->iso_frame_desc[i].status < 0) {
 			uvc_trace(UVC_TRACE_FRAME, "USB isochronous frame "
 				"lost (%d).\n", urb->iso_frame_desc[i].status);
-			/* Mark the buffer as faulty. */
-			if (buf != NULL)
+			/**
+			 * Mark the buffer as faulty.
+			 * Note: When the CONFIG_UVC_DISABLE_FRAME_DROPPING configuration is enabled,
+			 * the err flag will not be set to ensure that frame data is not discarded.
+			*/
+			if (buf != NULL && (stream->queue.flags & UVC_QUEUE_DROP_CORRUPTED))
 				buf->error = 1;
 			continue;
 		}
@@ -1386,8 +1426,20 @@ static void uvc_video_decode_isoc(struct uvc_urb *uvc_urb,
 		do {
 			ret = uvc_video_decode_start(stream, buf, mem,
 				urb->iso_frame_desc[i].actual_length);
-			if (ret == -EAGAIN)
+			if (ret == -EAGAIN) {
 				uvc_video_next_buffers(stream, &buf, &meta_buf);
+			}
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+			/*
+			 * Due to lack of buffer, the decode has been paused.
+			 * We have recorded the current decoding packet index 
+			 * to continue decoding when the user returns buf.
+			 */
+			else if (ret == -ENOSPC) {
+				uvc_urb->decode_packet_index = i;
+				return ret;
+			}
+#endif
 		} while (ret == -EAGAIN);
 
 		if (ret < 0)
@@ -1406,9 +1458,16 @@ static void uvc_video_decode_isoc(struct uvc_urb *uvc_urb,
 		if (buf->state == UVC_BUF_STATE_READY)
 			uvc_video_next_buffers(stream, &buf, &meta_buf);
 	}
+
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+	/* The entire uvc_urb's decode processing is complete, reset the index.*/
+	uvc_urb->decode_packet_index = 0;
+#endif
+
+	return 0;
 }
 
-static void uvc_video_decode_bulk(struct uvc_urb *uvc_urb,
+static int uvc_video_decode_bulk(struct uvc_urb *uvc_urb,
 			struct uvc_buffer *buf, struct uvc_buffer *meta_buf)
 {
 	struct urb *urb = uvc_urb->urb;
@@ -1421,7 +1480,7 @@ static void uvc_video_decode_bulk(struct uvc_urb *uvc_urb,
 	 * to trigger the end of payload detection.
 	 */
 	if (urb->actual_length == 0 && stream->bulk.header_size == 0)
-		return;
+		return 0;
 
 	mem = urb->transfer_buffer;
 	len = urb->actual_length;
@@ -1433,8 +1492,16 @@ static void uvc_video_decode_bulk(struct uvc_urb *uvc_urb,
 	if (stream->bulk.header_size == 0 && !stream->bulk.skip_payload) {
 		do {
 			ret = uvc_video_decode_start(stream, buf, mem, len);
-			if (ret == -EAGAIN)
+			if (ret == -EAGAIN) {
 				uvc_video_next_buffers(stream, &buf, &meta_buf);
+			}
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+			/* There is not enough buf for decoding in the current situation. */
+			else if (ret == -ENOSPC) {
+				stream->bulk.payload_size -= len;
+				return ret;
+			}
+#endif
 		} while (ret == -EAGAIN);
 
 		/* If an error occurred skip the rest of the payload. */
@@ -1476,9 +1543,11 @@ static void uvc_video_decode_bulk(struct uvc_urb *uvc_urb,
 		stream->bulk.skip_payload = 0;
 		stream->bulk.payload_size = 0;
 	}
+
+	return 0;
 }
 
-static void uvc_video_encode_bulk(struct uvc_urb *uvc_urb,
+static int uvc_video_encode_bulk(struct uvc_urb *uvc_urb,
 	struct uvc_buffer *buf, struct uvc_buffer *meta_buf)
 {
 	struct urb *urb = uvc_urb->urb;
@@ -1489,7 +1558,7 @@ static void uvc_video_encode_bulk(struct uvc_urb *uvc_urb,
 
 	if (buf == NULL) {
 		urb->transfer_buffer_length = 0;
-		return;
+		return 0;
 	}
 
 	/* If the URB is the first of its payload, add the header. */
@@ -1522,6 +1591,8 @@ static void uvc_video_encode_bulk(struct uvc_urb *uvc_urb,
 	}
 
 	urb->transfer_buffer_length = stream->urb_size - len;
+
+	return 0;
 }
 
 static void uvc_video_complete(struct urb *urb)
@@ -1558,6 +1629,21 @@ static void uvc_video_complete(struct urb *urb)
 
 	buf = uvc_queue_get_current_buffer(queue);
 
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+	/*
+	 * No buf available for decode to use.
+	 * There are urbs waiting for buffer to processing.
+	 * So subsequent urbs are queued for processing.
+	 */
+	spin_lock_irqsave(&stream->wait_queue_lock, flags);
+	if (!buf || !list_empty(&stream->wait_queue)) {
+		list_add_tail(&uvc_urb->queue, &stream->wait_queue);
+		spin_unlock_irqrestore(&stream->wait_queue_lock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(&stream->wait_queue_lock, flags);
+#endif
+
 	if (vb2_qmeta) {
 		spin_lock_irqsave(&qmeta->irqlock, flags);
 		if (!list_empty(&qmeta->irqqueue))
@@ -1573,7 +1659,22 @@ static void uvc_video_complete(struct urb *urb)
 	 * Process the URB headers, and optionally queue expensive memcpy tasks
 	 * to be deferred to a work queue.
 	 */
-	stream->decode(uvc_urb, buf, buf_meta);
+	ret = stream->decode(uvc_urb, buf, buf_meta);
+
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+	if (ret) {
+		/* Decode failed due to lack of buf. Waiting for the next decode processing. */
+		spin_lock_irqsave(&stream->wait_queue_lock, flags);
+		list_add_tail(&uvc_urb->queue, &stream->wait_queue);
+		spin_unlock_irqrestore(&stream->wait_queue_lock, flags);
+
+		/* Copy the decoded data to buf. */
+		if (uvc_urb->async_operations)
+			queue_work(stream->async_wq, &uvc_urb->work);
+
+		return;
+	}
+#endif
 
 	/* If no async work is needed, resubmit the URB immediately. */
 	if (!uvc_urb->async_operations) {
@@ -1586,7 +1687,72 @@ static void uvc_video_complete(struct urb *urb)
 	}
 
 	queue_work(stream->async_wq, &uvc_urb->work);
+	return;
 }
+
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+static void uvc_video_retry_complete(struct work_struct *work)
+{
+	struct uvc_streaming *stream = container_of(work, struct uvc_streaming, retry_decode);
+	struct uvc_video_queue *queue = &stream->queue;
+	struct uvc_video_queue *qmeta = &stream->meta.queue;
+	struct vb2_queue *vb2_qmeta = stream->meta.vdev.queue;
+	struct uvc_buffer *buf_meta = NULL;
+	struct uvc_buffer *buf = NULL;
+	struct uvc_urb *uvc_urb = NULL;
+	unsigned long flags;
+	int ret = 0;
+
+	while (1) {
+		spin_lock_irqsave(&stream->wait_queue_lock, flags);
+		uvc_urb = list_first_entry_or_null(&stream->wait_queue, struct uvc_urb, queue);
+		if (!uvc_urb || !uvc_urb->urb) {
+			spin_unlock_irqrestore(&stream->wait_queue_lock, flags);
+			return;
+		}
+		spin_unlock_irqrestore(&stream->wait_queue_lock, flags);
+
+		buf = uvc_queue_get_current_buffer(queue);
+		if (!buf)
+			return;
+
+		if (vb2_qmeta) {
+			spin_lock_irqsave(&qmeta->irqlock, flags);
+			if (!list_empty(&qmeta->irqqueue))
+				buf_meta = list_first_entry(&qmeta->irqqueue,
+								struct uvc_buffer, queue);
+			spin_unlock_irqrestore(&qmeta->irqlock, flags);
+		}
+
+		/* Re-initialise the URB async work. */
+		uvc_urb->async_operations = 0;
+
+		ret = stream->decode(uvc_urb, buf, buf_meta);
+		if (ret) {
+			if (uvc_urb->async_operations)
+				queue_work(stream->async_wq, &uvc_urb->work);
+			return;
+		}
+
+		/* The entire uvc_urb is decoded successfully, so remove it from wait queue. */
+		spin_lock_irqsave(&stream->wait_queue_lock, flags);
+		list_del_init(&uvc_urb->queue);
+		spin_unlock_irqrestore(&stream->wait_queue_lock, flags);
+
+		/* If no async work is needed, resubmit the URB immediately. */
+		if (!uvc_urb->async_operations) {
+			ret = usb_submit_urb(uvc_urb->urb, GFP_ATOMIC);
+			if (ret < 0)
+				uvc_printk(KERN_ERR,
+					"Failed to resubmit video URB (%d).\n",
+					ret);
+			continue;
+		}
+
+		queue_work(stream->async_wq, &uvc_urb->work);
+	}
+}
+#endif
 
 /*
  * Free transfer buffers.
@@ -1606,6 +1772,10 @@ static void uvc_free_urb_buffers(struct uvc_streaming *stream)
 		kfree(uvc_urb->buffer);
 #endif
 		uvc_urb->buffer = NULL;
+
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+		uvc_urb->decode_packet_index = 0;
+#endif
 	}
 
 	stream->urb_size = 0;
@@ -1683,7 +1853,6 @@ static void uvc_video_stop_transfer(struct uvc_streaming *stream,
 	struct uvc_urb *uvc_urb;
 
 	uvc_video_stats_stop(stream);
-
 	/*
 	 * We must poison the URBs rather than kill them to ensure that even
 	 * after the completion handler returns, any asynchronous workqueues
@@ -1693,6 +1862,10 @@ static void uvc_video_stop_transfer(struct uvc_streaming *stream,
 		usb_poison_urb(uvc_urb->urb);
 
 	flush_workqueue(stream->async_wq);
+
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+	INIT_LIST_HEAD(&stream->wait_queue);
+#endif
 
 	for_each_uvc_urb(uvc_urb, stream) {
 		usb_free_urb(uvc_urb->urb);
@@ -1780,6 +1953,10 @@ static int uvc_init_video_isoc(struct uvc_streaming *stream,
 		}
 
 		uvc_urb->urb = urb;
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+		uvc_urb->decode_packet_index = 0;
+		INIT_LIST_HEAD(&uvc_urb->queue);
+#endif
 	}
 
 	return 0;
@@ -1833,6 +2010,10 @@ static int uvc_init_video_bulk(struct uvc_streaming *stream,
 #endif
 
 		uvc_urb->urb = urb;
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+		uvc_urb->decode_packet_index = 0;
+		INIT_LIST_HEAD(&uvc_urb->queue);
+#endif
 	}
 
 	return 0;
@@ -2100,6 +2281,13 @@ int uvc_video_init(struct uvc_streaming *stream)
 	stream->def_format = format;
 	stream->cur_format = format;
 	stream->cur_frame = frame;
+
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+	spin_lock_init(&stream->wait_queue_lock);
+	INIT_LIST_HEAD(&stream->wait_queue);
+
+	INIT_WORK(&stream->retry_decode, uvc_video_retry_complete);
+#endif
 
 	/* Select the video decoding function */
 	if (stream->type == V4L2_BUF_TYPE_VIDEO_CAPTURE) {

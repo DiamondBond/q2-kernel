@@ -172,6 +172,21 @@ const char *usb_state_string(enum usb_device_state state)
 }
 EXPORT_SYMBOL_GPL(usb_state_string);
 
+static const char *const power_names[] = {
+	[USB_POWER_UNKNOWN] = "UNKNOWN",
+	[USB_POWER_SDP] = "Standard Downstream Port",
+	[USB_POWER_DCP] = "Dedicated Charging Port",
+	[USB_POWER_CDP] = "Charging Downstream Port",
+};
+
+const char *usb_power_string(enum usb_device_power type)
+{
+	if (type < 0 || type >= ARRAY_SIZE(power_names))
+		type = USB_POWER_UNKNOWN;
+	return power_names[type];
+}
+EXPORT_SYMBOL_GPL(usb_power_string);
+
 static const char *const usb_dr_modes[] = {
 	[USB_DR_MODE_UNKNOWN]		= "",
 	[USB_DR_MODE_HOST]		= "host",
@@ -199,6 +214,26 @@ enum usb_dr_mode usb_get_dr_mode(struct device *dev)
 	return usb_get_dr_mode_from_string(dr_mode);
 }
 EXPORT_SYMBOL_GPL(usb_get_dr_mode);
+
+/**
+ * usb_get_role_switch_default_mode - Get default mode for given device
+ * @dev: Pointer to the given device
+ *
+ * The function gets string from property 'role-switch-default-mode',
+ * and returns the corresponding enum usb_dr_mode.
+ */
+enum usb_dr_mode usb_get_role_switch_default_mode(struct device *dev)
+{
+	const char *str;
+	int ret;
+
+	ret = device_property_read_string(dev, "role-switch-default-mode", &str);
+	if (ret < 0)
+		return USB_DR_MODE_UNKNOWN;
+
+	return usb_get_dr_mode_from_string(str);
+}
+EXPORT_SYMBOL_GPL(usb_get_role_switch_default_mode);
 
 /**
  * usb_decode_interval - Decode bInterval into the time expressed in 1us unit

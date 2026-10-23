@@ -29,7 +29,11 @@
 
 unsigned int uvc_clock_param = CLOCK_MONOTONIC;
 unsigned int uvc_hw_timestamps_param;
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+unsigned int uvc_no_drop_param = 1;
+#else
 unsigned int uvc_no_drop_param;
+#endif
 static unsigned int uvc_quirks_param = -1;
 unsigned int uvc_trace_param;
 unsigned int uvc_timeout_param = UVC_CTRL_STREAMING_TIMEOUT;
@@ -153,6 +157,11 @@ static struct uvc_format_desc uvc_fmts[] = {
 		.name		= "H.264",
 		.guid		= UVC_GUID_FORMAT_H264,
 		.fcc		= V4L2_PIX_FMT_H264,
+	},
+	{
+		.name		= "H.265",
+		.guid		= UVC_GUID_FORMAT_H265,
+		.fcc		= V4L2_PIX_FMT_HEVC,
 	},
 	{
 		.name		= "Greyscale 8 L/R (Y8I)",

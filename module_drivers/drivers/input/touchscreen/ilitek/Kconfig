@@ -1,0 +1,17 @@
+menuconfig TOUCHSCREEN_ILITEK
+      tristate "ilitek TouchScreen driver"
+      depends on I2C
+      default n
+      help
+        ILITEK TouchScreen driver.
+
+if TOUCHSCREEN_ILITEK
+config ILITEK_BOOT_UPDATE
+	bool "ILITEK_BOOT_UPDATE"
+	default n
+	help
+	Say Y here if you have tpd button.
+
+	If unsure, say N.
+
+endif

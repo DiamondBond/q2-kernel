@@ -403,7 +403,7 @@ static void init_winctx_regs(struct vas_window *window,
 	 *
 	 * See also: Design note in function header.
 	 */
-	val = winctx->rx_fifo;
+	val = __pa(winctx->rx_fifo);
 	val = SET_FIELD(VAS_PAGE_MIGRATION_SELECT, val, 0);
 	write_hvwc_reg(window, VREG(LFIFO_BAR), val);
 
@@ -737,7 +737,7 @@ static void init_winctx_for_rxwin(struct vas_window *rxwin,
 		 */
 		winctx->fifo_disable = true;
 		winctx->intr_disable = true;
-		winctx->rx_fifo = 0;
+		winctx->rx_fifo = NULL;
 	}
 
 	winctx->lnotify_lpid = rxattr->lnotify_lpid;
@@ -1093,9 +1093,9 @@ struct vas_window *vas_tx_win_open(int vasid, enum vas_cop_type cop,
 		/*
 		 * Process closes window during exit. In the case of
 		 * multithread application, the child thread can open
-		 * window and can exit without closing it. so takes tgid
-		 * reference until window closed to make sure tgid is not
-		 * reused.
+		 * window and can exit without closing it. Expects parent
+		 * thread to use and close the window. So do not need
+		 * to take pid reference for parent thread.
 		 */
 		txwin->tgid = find_get_pid(task_tgid_vnr(current));
 		/*
@@ -1339,9 +1339,8 @@ int vas_win_close(struct vas_window *window)
 	/* if send window, drop reference to matching receive window */
 	if (window->tx_win) {
 		if (window->user_win) {
-			/* Drop references to pid. tgid and mm */
+			/* Drop references to pid and mm */
 			put_pid(window->pid);
-			put_pid(window->tgid);
 			if (window->mm) {
 				mm_context_remove_vas_window(window->mm);
 				mmdrop(window->mm);

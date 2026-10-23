@@ -1,0 +1,12 @@
+obj-$(CONFIG_AW9523_EXT_GPIO)      += gpio-aw9523.o
+obj-$(CONFIG_LINUX_PMEM)        += linux_pmem.o
+obj-$(CONFIG_INGENIC_RSA)       += ingenic_rsa.o
+obj-$(CONFIG_INGENIC_EFUSE_X2000)       += ingenic_efuse_x2000.o hamming.o
+obj-$(CONFIG_INGENIC_EFUSE_X2600)       += ingenic_efuse_x2600.o hamming.o
+obj-$(CONFIG_INGENIC_EFUSE_X1600)	+= ingenic_efuse_x1600.o
+obj-$(CONFIG_INGENIC_EFUSE_X2500)	+= ingenic_efuse_x2500.o
+obj-$(CONFIG_RMEM)      += rmem.o
+obj-$(CONFIG_BCM_4345C5_RFKILL) += bt_power_bluesleep.o
+obj-$(CONFIG_SEEKWAVE_PLD_RELEASE) += seekwaveplatform/
+obj-$(CONFIG_SPI_LCD_ST7789p3) += spi-panel-st7789p3.o
+obj-$(CONFIG_BOOTINFO) += bootinfo/

@@ -378,6 +378,7 @@ enum dma_slave_buswidth {
 	DMA_SLAVE_BUSWIDTH_16_BYTES = 16,
 	DMA_SLAVE_BUSWIDTH_32_BYTES = 32,
 	DMA_SLAVE_BUSWIDTH_64_BYTES = 64,
+    	DMA_SLAVE_BUSWIDTH_128_BYTES = 128,
 };
 
 /**
@@ -875,6 +876,14 @@ struct dma_device {
 
 	int (*device_alloc_chan_resources)(struct dma_chan *chan);
 	void (*device_free_chan_resources)(struct dma_chan *chan);
+
+	/* Legacy Interface For ingenic chips. New DMA Driver should never use.*/
+	struct dma_async_tx_descriptor *(*device_add_desc)(
+			struct dma_chan *chan, dma_addr_t src,dma_addr_t dst,
+			unsigned cnt,enum dma_transfer_direction direction,int flag);
+	dma_addr_t (*get_current_trans_addr)(
+			struct dma_chan *chan,dma_addr_t *dst_addr,
+			dma_addr_t *src_addr,enum dma_transfer_direction direction);
 
 	struct dma_async_tx_descriptor *(*device_prep_dma_memcpy)(
 		struct dma_chan *chan, dma_addr_t dst, dma_addr_t src,

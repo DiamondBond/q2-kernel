@@ -470,6 +470,7 @@ int x509_extract_key_data(void *context, size_t hdrlen,
 		ctx->cert->pub->pkey_algo = "ecrdsa";
 		break;
 	case OID_id_ecPublicKey:
+	case OID_sm2:
 		ctx->cert->pub->pkey_algo = "sm2";
 		break;
 	default:

@@ -302,10 +302,23 @@ int uvc_queue_buffer(struct uvc_video_queue *queue,
 		     struct media_device *mdev, struct v4l2_buffer *buf)
 {
 	int ret;
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+	unsigned long flags;
+	struct uvc_streaming *stream = uvc_queue_to_stream(queue);
+#endif
 
 	mutex_lock(&queue->mutex);
 	ret = vb2_qbuf(&queue->queue, mdev, buf);
 	mutex_unlock(&queue->mutex);
+
+#ifdef CONFIG_UVC_DISABLE_FRAME_DROPPING
+	spin_lock_irqsave(&stream->wait_queue_lock, flags);
+	if (!list_empty(&stream->wait_queue)) {
+		/* Attempt to handle the uvc_urb in wait queue. */
+		queue_work(stream->async_wq, &stream->retry_decode);
+	}
+	spin_unlock_irqrestore(&stream->wait_queue_lock, flags);
+#endif
 
 	return ret;
 }

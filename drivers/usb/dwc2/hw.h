@@ -3,36 +3,6 @@
  * hw.h - DesignWare HS OTG Controller hardware definitions
  *
  * Copyright 2004-2013 Synopsys, Inc.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions, and the following disclaimer,
- *    without modification.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. The names of the above-listed copyright holders may not be used
- *    to endorse or promote products derived from this software without
- *    specific prior written permission.
- *
- * ALTERNATIVELY, this software may be distributed under the terms of the
- * GNU General Public License ("GPL") as published by the Free Software
- * Foundation; either version 2 of the License, or (at your option) any
- * later version.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
- * IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef __DWC2_HW_H__
@@ -44,6 +14,7 @@
 #define GOTGCTL_CHIRPEN			BIT(27)
 #define GOTGCTL_MULT_VALID_BC_MASK	(0x1f << 22)
 #define GOTGCTL_MULT_VALID_BC_SHIFT	22
+#define GOTGCTL_CURMODE_HOST		BIT(21)
 #define GOTGCTL_OTGVER			BIT(20)
 #define GOTGCTL_BSESVLD			BIT(19)
 #define GOTGCTL_ASESVLD			BIT(18)
@@ -648,38 +619,6 @@
 
 #define DTXFSTS(_a)			HSOTG_REG(0x918 + ((_a) * 0x20))
 
-#define PCGCTL				HSOTG_REG(0x0e00)
-#define PCGCTL_IF_DEV_MODE		BIT(31)
-#define PCGCTL_P2HD_PRT_SPD_MASK	(0x3 << 29)
-#define PCGCTL_P2HD_PRT_SPD_SHIFT	29
-#define PCGCTL_P2HD_DEV_ENUM_SPD_MASK	(0x3 << 27)
-#define PCGCTL_P2HD_DEV_ENUM_SPD_SHIFT	27
-#define PCGCTL_MAC_DEV_ADDR_MASK	(0x7f << 20)
-#define PCGCTL_MAC_DEV_ADDR_SHIFT	20
-#define PCGCTL_MAX_TERMSEL		BIT(19)
-#define PCGCTL_MAX_XCVRSELECT_MASK	(0x3 << 17)
-#define PCGCTL_MAX_XCVRSELECT_SHIFT	17
-#define PCGCTL_PORT_POWER		BIT(16)
-#define PCGCTL_PRT_CLK_SEL_MASK		(0x3 << 14)
-#define PCGCTL_PRT_CLK_SEL_SHIFT	14
-#define PCGCTL_ESS_REG_RESTORED		BIT(13)
-#define PCGCTL_EXTND_HIBER_SWITCH	BIT(12)
-#define PCGCTL_EXTND_HIBER_PWRCLMP	BIT(11)
-#define PCGCTL_ENBL_EXTND_HIBER		BIT(10)
-#define PCGCTL_RESTOREMODE		BIT(9)
-#define PCGCTL_RESETAFTSUSP		BIT(8)
-#define PCGCTL_DEEP_SLEEP		BIT(7)
-#define PCGCTL_PHY_IN_SLEEP		BIT(6)
-#define PCGCTL_ENBL_SLEEP_GATING	BIT(5)
-#define PCGCTL_RSTPDWNMODULE		BIT(3)
-#define PCGCTL_PWRCLMP			BIT(2)
-#define PCGCTL_GATEHCLK			BIT(1)
-#define PCGCTL_STOPPCLK			BIT(0)
-
-#define PCGCCTL1                        HSOTG_REG(0xe04)
-#define PCGCCTL1_TIMER                  (0x3 << 1)
-#define PCGCCTL1_GATEEN                 BIT(0)
-
 #define EPFIFO(_a)			HSOTG_REG(0x1000 + ((_a) * 0x1000))
 
 /* Host Mode Registers */
@@ -727,7 +666,7 @@
 #define TXSTS_QTOP_TOKEN_MASK		(0x3 << 25)
 #define TXSTS_QTOP_TOKEN_SHIFT		25
 #define TXSTS_QTOP_TERMINATE		BIT(24)
-#define TXSTS_QSPCAVAIL_MASK		(0xff << 16)
+#define TXSTS_QSPCAVAIL_MASK		(0x7f << 16)
 #define TXSTS_QSPCAVAIL_SHIFT		16
 #define TXSTS_FSPCAVAIL_MASK		(0xffff << 0)
 #define TXSTS_FSPCAVAIL_SHIFT		0

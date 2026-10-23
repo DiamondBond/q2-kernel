@@ -32,6 +32,7 @@
 #include <linux/ctype.h>
 #include <linux/cdev.h>
 #include <linux/kref.h>
+#include <linux/dma-mapping.h>
 
 #include <asm/byteorder.h>
 #include <linux/io.h>
@@ -60,8 +61,9 @@ static DEFINE_MUTEX(printer_ida_lock); /* protects access do printer_ida */
 
 struct printer_dev {
 	spinlock_t		lock;		/* lock this structure */
-	/* lock buffer lists during read/write calls */
-	struct mutex		lock_printer_io;
+	/* Serialize per-direction I/O without blocking the opposite path. */
+	struct mutex		lock_printer_rx;
+	struct mutex		lock_printer_tx;
 	struct usb_gadget	*gadget;
 	s8			interface;
 	struct usb_ep		*in_ep, *out_ep;
@@ -81,13 +83,13 @@ struct printer_dev {
 	size_t			current_rx_bytes;
 	u8			*current_rx_buf;
 	u8			printer_status;
-	u8			reset_printer;
+	unsigned int		reset_seq;
 	int			minor;
 	struct cdev		printer_cdev;
 	u8			printer_cdev_open;
 	wait_queue_head_t	wait;
 	unsigned		q_len;
-	char			**pnp_string;	/* We don't own memory! */
+	char			*pnp_string;	/* We don't own memory! */
 	struct usb_function	function;
 };
 
@@ -235,7 +237,8 @@ printer_req_alloc(struct usb_ep *ep, unsigned len, gfp_t gfp_flags)
 
 	if (req != NULL) {
 		req->length = len;
-		req->buf = kmalloc(len, gfp_flags);
+		req->buf = kmalloc(ALIGN(len, dma_get_cache_alignment()),
+				   gfp_flags);
 		if (req->buf == NULL) {
 			usb_ep_free_request(ep, req);
 			return NULL;
@@ -360,8 +363,8 @@ printer_open(struct inode *inode, struct file *fd)
 	}
 
 	spin_unlock_irqrestore(&dev->lock, flags);
-
-	kref_get(&dev->kref);
+	if (!ret)
+		kref_get(&dev->kref);
 	DBG(dev, "printer_open returned %x\n", ret);
 	return ret;
 }
@@ -422,11 +425,26 @@ setup_rx_reqs(struct printer_dev *dev)
 	}
 }
 
+static bool printer_rx_ready(struct printer_dev *dev, unsigned int reset_seq)
+{
+	return READ_ONCE(dev->interface) < 0 ||
+	       READ_ONCE(dev->reset_seq) != reset_seq ||
+	       likely(!list_empty(&dev->rx_buffers));
+}
+
+static bool printer_tx_ready(struct printer_dev *dev, unsigned int reset_seq)
+{
+	return READ_ONCE(dev->interface) < 0 ||
+	       READ_ONCE(dev->reset_seq) != reset_seq ||
+	       likely(!list_empty(&dev->tx_reqs));
+}
+
 static ssize_t
 printer_read(struct file *fd, char __user *buf, size_t len, loff_t *ptr)
 {
 	struct printer_dev		*dev = fd->private_data;
 	unsigned long			flags;
+	unsigned int			reset_seq;
 	size_t				size;
 	size_t				bytes_copied;
 	struct usb_request		*req;
@@ -436,25 +454,23 @@ printer_read(struct file *fd, char __user *buf, size_t len, loff_t *ptr)
 	size_t				current_rx_bytes;
 	/* This is a pointer to the current rx buffer. */
 	u8				*current_rx_buf;
+	int				value;
 
 	if (len == 0)
 		return -EINVAL;
 
 	DBG(dev, "printer_read trying to read %d bytes\n", (int)len);
 
-	mutex_lock(&dev->lock_printer_io);
+	mutex_lock(&dev->lock_printer_rx);
 	spin_lock_irqsave(&dev->lock, flags);
 
 	if (dev->interface < 0) {
 		spin_unlock_irqrestore(&dev->lock, flags);
-		mutex_unlock(&dev->lock_printer_io);
+		mutex_unlock(&dev->lock_printer_rx);
 		return -ENODEV;
 	}
 
-	/* We will use this flag later to check if a printer reset happened
-	 * after we turn interrupts back on.
-	 */
-	dev->reset_printer = 0;
+	reset_seq = dev->reset_seq;
 
 	setup_rx_reqs(dev);
 
@@ -482,14 +498,30 @@ printer_read(struct file *fd, char __user *buf, size_t len, loff_t *ptr)
 		 * call or not.
 		 */
 		if (fd->f_flags & (O_NONBLOCK|O_NDELAY)) {
-			mutex_unlock(&dev->lock_printer_io);
+			mutex_unlock(&dev->lock_printer_rx);
 			return -EAGAIN;
 		}
 
 		/* Sleep until data is available */
-		wait_event_interruptible(dev->rx_wait,
-				(likely(!list_empty(&dev->rx_buffers))));
+		value = wait_event_interruptible(dev->rx_wait,
+				printer_rx_ready(dev, reset_seq));
+		if (value) {
+			mutex_unlock(&dev->lock_printer_rx);
+			return value;
+		}
 		spin_lock_irqsave(&dev->lock, flags);
+
+		if (dev->interface < 0) {
+			spin_unlock_irqrestore(&dev->lock, flags);
+			mutex_unlock(&dev->lock_printer_rx);
+			return -ENODEV;
+		}
+
+		if (dev->reset_seq != reset_seq) {
+			spin_unlock_irqrestore(&dev->lock, flags);
+			mutex_unlock(&dev->lock_printer_rx);
+			return -EAGAIN;
+		}
 	}
 
 	/* We have data to return then copy it to the caller's buffer.*/
@@ -526,10 +558,19 @@ printer_read(struct file *fd, char __user *buf, size_t len, loff_t *ptr)
 		spin_lock_irqsave(&dev->lock, flags);
 
 		/* We've disconnected or reset so return. */
-		if (dev->reset_printer) {
-			list_add(&current_rx_req->list, &dev->rx_reqs);
+		if (dev->interface < 0) {
+			if (current_rx_req)
+				list_add(&current_rx_req->list, &dev->rx_reqs);
 			spin_unlock_irqrestore(&dev->lock, flags);
-			mutex_unlock(&dev->lock_printer_io);
+			mutex_unlock(&dev->lock_printer_rx);
+			return -ENODEV;
+		}
+
+		if (dev->reset_seq != reset_seq) {
+			if (current_rx_req)
+				list_add(&current_rx_req->list, &dev->rx_reqs);
+			spin_unlock_irqrestore(&dev->lock, flags);
+			mutex_unlock(&dev->lock_printer_rx);
 			return -EAGAIN;
 		}
 
@@ -554,7 +595,7 @@ printer_read(struct file *fd, char __user *buf, size_t len, loff_t *ptr)
 	dev->current_rx_buf = current_rx_buf;
 
 	spin_unlock_irqrestore(&dev->lock, flags);
-	mutex_unlock(&dev->lock_printer_io);
+	mutex_unlock(&dev->lock_printer_rx);
 
 	DBG(dev, "printer_read returned %d bytes\n", (int)bytes_copied);
 
@@ -569,6 +610,7 @@ printer_write(struct file *fd, const char __user *buf, size_t len, loff_t *ptr)
 {
 	struct printer_dev	*dev = fd->private_data;
 	unsigned long		flags;
+	unsigned int		reset_seq;
 	size_t			size;	/* Amount of data in a TX request. */
 	size_t			bytes_copied = 0;
 	struct usb_request	*req;
@@ -579,17 +621,16 @@ printer_write(struct file *fd, const char __user *buf, size_t len, loff_t *ptr)
 	if (len == 0)
 		return -EINVAL;
 
-	mutex_lock(&dev->lock_printer_io);
+	mutex_lock(&dev->lock_printer_tx);
 	spin_lock_irqsave(&dev->lock, flags);
 
 	if (dev->interface < 0) {
 		spin_unlock_irqrestore(&dev->lock, flags);
-		mutex_unlock(&dev->lock_printer_io);
+		mutex_unlock(&dev->lock_printer_tx);
 		return -ENODEV;
 	}
 
-	/* Check if a printer reset happens while we have interrupts on */
-	dev->reset_printer = 0;
+	reset_seq = dev->reset_seq;
 
 	/* Check if there is any available write buffers */
 	if (likely(list_empty(&dev->tx_reqs))) {
@@ -601,14 +642,30 @@ printer_write(struct file *fd, const char __user *buf, size_t len, loff_t *ptr)
 		 * a NON-Blocking call or not.
 		 */
 		if (fd->f_flags & (O_NONBLOCK|O_NDELAY)) {
-			mutex_unlock(&dev->lock_printer_io);
+			mutex_unlock(&dev->lock_printer_tx);
 			return -EAGAIN;
 		}
 
 		/* Sleep until a write buffer is available */
-		wait_event_interruptible(dev->tx_wait,
-				(likely(!list_empty(&dev->tx_reqs))));
+		value = wait_event_interruptible(dev->tx_wait,
+				printer_tx_ready(dev, reset_seq));
+		if (value) {
+			mutex_unlock(&dev->lock_printer_tx);
+			return value;
+		}
 		spin_lock_irqsave(&dev->lock, flags);
+
+		if (dev->interface < 0) {
+			spin_unlock_irqrestore(&dev->lock, flags);
+			mutex_unlock(&dev->lock_printer_tx);
+			return -ENODEV;
+		}
+
+		if (dev->reset_seq != reset_seq) {
+			spin_unlock_irqrestore(&dev->lock, flags);
+			mutex_unlock(&dev->lock_printer_tx);
+			return -EAGAIN;
+		}
 	}
 
 	while (likely(!list_empty(&dev->tx_reqs)) && len) {
@@ -639,8 +696,10 @@ printer_write(struct file *fd, const char __user *buf, size_t len, loff_t *ptr)
 		spin_unlock_irqrestore(&dev->lock, flags);
 
 		if (copy_from_user(req->buf, buf, size)) {
+			spin_lock_irqsave(&dev->lock, flags);
 			list_add(&req->list, &dev->tx_reqs);
-			mutex_unlock(&dev->lock_printer_io);
+			spin_unlock_irqrestore(&dev->lock, flags);
+			mutex_unlock(&dev->lock_printer_tx);
 			return bytes_copied;
 		}
 
@@ -651,10 +710,17 @@ printer_write(struct file *fd, const char __user *buf, size_t len, loff_t *ptr)
 		spin_lock_irqsave(&dev->lock, flags);
 
 		/* We've disconnected or reset so free the req and buffer */
-		if (dev->reset_printer) {
+		if (dev->interface < 0) {
 			list_add(&req->list, &dev->tx_reqs);
 			spin_unlock_irqrestore(&dev->lock, flags);
-			mutex_unlock(&dev->lock_printer_io);
+			mutex_unlock(&dev->lock_printer_tx);
+			return -ENODEV;
+		}
+
+		if (dev->reset_seq != reset_seq) {
+			list_add(&req->list, &dev->tx_reqs);
+			spin_unlock_irqrestore(&dev->lock, flags);
+			mutex_unlock(&dev->lock_printer_tx);
 			return -EAGAIN;
 		}
 
@@ -665,16 +731,15 @@ printer_write(struct file *fd, const char __user *buf, size_t len, loff_t *ptr)
 		value = usb_ep_queue(dev->in_ep, req, GFP_ATOMIC);
 		spin_lock(&dev->lock);
 		if (value) {
-			list_del(&req->list);
-			list_add(&req->list, &dev->tx_reqs);
+			list_move(&req->list, &dev->tx_reqs);
 			spin_unlock_irqrestore(&dev->lock, flags);
-			mutex_unlock(&dev->lock_printer_io);
+			mutex_unlock(&dev->lock_printer_tx);
 			return -EAGAIN;
 		}
 	}
 
 	spin_unlock_irqrestore(&dev->lock, flags);
-	mutex_unlock(&dev->lock_printer_io);
+	mutex_unlock(&dev->lock_printer_tx);
 
 	DBG(dev, "printer_write sent %d bytes\n", (int)bytes_copied);
 
@@ -721,18 +786,18 @@ printer_poll(struct file *fd, poll_table *wait)
 	unsigned long		flags;
 	__poll_t		status = 0;
 
-	mutex_lock(&dev->lock_printer_io);
+	mutex_lock(&dev->lock_printer_rx);
 	spin_lock_irqsave(&dev->lock, flags);
 
 	if (dev->interface < 0) {
 		spin_unlock_irqrestore(&dev->lock, flags);
-		mutex_unlock(&dev->lock_printer_io);
+		mutex_unlock(&dev->lock_printer_rx);
 		return EPOLLERR | EPOLLHUP;
 	}
 
 	setup_rx_reqs(dev);
 	spin_unlock_irqrestore(&dev->lock, flags);
-	mutex_unlock(&dev->lock_printer_io);
+	mutex_unlock(&dev->lock_printer_rx);
 
 	poll_wait(fd, &dev->rx_wait, wait);
 	poll_wait(fd, &dev->tx_wait, wait);
@@ -823,7 +888,7 @@ set_printer_interface(struct printer_dev *dev)
 
 	result = usb_ep_enable(dev->out_ep);
 	if (result != 0) {
-		DBG(dev, "enable %s --> %d\n", dev->in_ep->name, result);
+		DBG(dev, "enable %s --> %d\n", dev->out_ep->name, result);
 		goto done;
 	}
 
@@ -849,6 +914,10 @@ static void printer_reset_interface(struct printer_dev *dev)
 
 	DBG(dev, "%s\n", __func__);
 
+	spin_lock_irqsave(&dev->lock, flags);
+	dev->interface = -1;
+	spin_unlock_irqrestore(&dev->lock, flags);
+
 	if (dev->in_ep->desc)
 		usb_ep_disable(dev->in_ep);
 
@@ -858,8 +927,11 @@ static void printer_reset_interface(struct printer_dev *dev)
 	spin_lock_irqsave(&dev->lock, flags);
 	dev->in_ep->desc = NULL;
 	dev->out_ep->desc = NULL;
-	dev->interface = -1;
 	spin_unlock_irqrestore(&dev->lock, flags);
+
+	wake_up_interruptible(&dev->rx_wait);
+	wake_up_interruptible(&dev->tx_wait);
+	wake_up_interruptible(&dev->tx_flush_wait);
 }
 
 /* Change our operational Interface. */
@@ -885,6 +957,7 @@ static int set_interface(struct printer_dev *dev, unsigned number)
 static void printer_soft_reset(struct printer_dev *dev)
 {
 	struct usb_request	*req;
+	unsigned long		flags;
 
 	INFO(dev, "Received Printer Reset Request\n");
 
@@ -893,13 +966,15 @@ static void printer_soft_reset(struct printer_dev *dev)
 	if (usb_ep_disable(dev->out_ep))
 		DBG(dev, "Failed to disable USB out_ep\n");
 
+	spin_lock_irqsave(&dev->lock, flags);
+
 	if (dev->current_rx_req != NULL) {
 		list_add(&dev->current_rx_req->list, &dev->rx_reqs);
 		dev->current_rx_req = NULL;
 	}
 	dev->current_rx_bytes = 0;
 	dev->current_rx_buf = NULL;
-	dev->reset_printer = 1;
+	dev->reset_seq++;
 
 	while (likely(!(list_empty(&dev->rx_buffers)))) {
 		req = container_of(dev->rx_buffers.next, struct usb_request,
@@ -909,7 +984,7 @@ static void printer_soft_reset(struct printer_dev *dev)
 	}
 
 	while (likely(!(list_empty(&dev->rx_reqs_active)))) {
-		req = container_of(dev->rx_buffers.next, struct usb_request,
+		req = container_of(dev->rx_reqs_active.next, struct usb_request,
 				list);
 		list_del_init(&req->list);
 		list_add(&req->list, &dev->rx_reqs);
@@ -921,6 +996,8 @@ static void printer_soft_reset(struct printer_dev *dev)
 		list_del_init(&req->list);
 		list_add(&req->list, &dev->tx_reqs);
 	}
+
+	spin_unlock_irqrestore(&dev->lock, flags);
 
 	if (usb_ep_enable(dev->in_ep))
 		DBG(dev, "Failed to enable USB in_ep\n");
@@ -999,16 +1076,16 @@ static int printer_func_setup(struct usb_function *f,
 			if ((wIndex>>8) != dev->interface)
 				break;
 
-			if (!*dev->pnp_string) {
+			if (!dev->pnp_string) {
 				value = 0;
 				break;
 			}
-			value = strlen(*dev->pnp_string);
+			value = strlen(dev->pnp_string);
 			buf[0] = (value >> 8) & 0xFF;
 			buf[1] = value & 0xFF;
-			memcpy(buf + 2, *dev->pnp_string, value);
+			memcpy(buf + 2, dev->pnp_string, value);
 			DBG(dev, "1284 PNP String: %x %s\n", value,
-			    *dev->pnp_string);
+			    dev->pnp_string);
 			break;
 
 		case GET_PORT_STATUS: /* Get Port Status */
@@ -1471,7 +1548,7 @@ static struct usb_function *gprinter_alloc(struct usb_function_instance *fi)
 	kref_init(&dev->kref);
 	++opts->refcnt;
 	dev->minor = opts->minor;
-	dev->pnp_string = &opts->pnp_string;
+	dev->pnp_string = opts->pnp_string;
 	dev->q_len = opts->q_len;
 	mutex_unlock(&opts->lock);
 
@@ -1491,7 +1568,8 @@ static struct usb_function *gprinter_alloc(struct usb_function_instance *fi)
 	INIT_LIST_HEAD(&dev->rx_reqs_active);
 
 	spin_lock_init(&dev->lock);
-	mutex_init(&dev->lock_printer_io);
+	mutex_init(&dev->lock_printer_rx);
+	mutex_init(&dev->lock_printer_tx);
 	init_waitqueue_head(&dev->rx_wait);
 	init_waitqueue_head(&dev->tx_wait);
 	init_waitqueue_head(&dev->tx_flush_wait);
@@ -1502,6 +1580,7 @@ static struct usb_function *gprinter_alloc(struct usb_function_instance *fi)
 	dev->current_rx_req = NULL;
 	dev->current_rx_bytes = 0;
 	dev->current_rx_buf = NULL;
+	dev->reset_seq = 0;
 
 	return &dev->function;
 }

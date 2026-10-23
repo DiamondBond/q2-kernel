@@ -285,6 +285,11 @@ ifdef CONFIG_64BIT
   endif
 endif
 
+# When the cross compilation toolchain is gcc1210, the compilation option mnan=2008
+# When the cross compilation toolchain is gcc720/gcc930, the compilation option mnan=legacy
+# To adapt to certain pre compiled static libraries, set the compilation option mnan=legacy
+cflags-$(CONFIG_MACH_XBURST2)		+= -mnan=legacy
+
 # When linking a 32-bit executable the LLVM linker cannot cope with a
 # 32-bit load address that has been sign-extended to 64 bits.  Simply
 # remove the upper 32 bits then, as it is safe to do so with other
@@ -351,6 +356,11 @@ boot-y			+= uImage.bz2
 boot-y			+= uImage.gz
 boot-y			+= uImage.lzma
 boot-y			+= uImage.lzo
+boot-y			+= uImage.zstd
+boot-y			+= uImage_split
+boot-y			+= uImage.split.gz
+boot-y			+= uImage.split.lzma
+boot-y			+= uImage.split.zstd
 endif
 boot-y			+= vmlinux.itb
 boot-y			+= vmlinux.gz.itb
@@ -392,6 +402,18 @@ all:	$(all-y) $(KBUILD_DTBS)
 $(boot-y): $(vmlinux-32) FORCE
 	$(Q)$(MAKE) $(build)=arch/mips/boot VMLINUX=$(vmlinux-32) \
 		$(bootvars-y) arch/mips/boot/$@
+
+# zImage
+zImage: $(vmlinux-32) FORCE
+	$(Q)$(MAKE) $(build)=arch/mips/boot/zcompressed VMLINUX=$(vmlinux-32) $@
+	@mkdir -p arch/mips/boot/compressed
+	@cp arch/mips/boot/zcompressed/$@ arch/mips/boot/compressed/$@
+	@echo '  Kernel: arch/mips/boot/compressed/$@ is ready'
+xImage: $(vmlinux-32) FORCE
+	$(Q)$(MAKE) $(build)=arch/mips/boot/zcompressed VMLINUX=$(vmlinux-32) $@
+	@mkdir -p arch/mips/boot/compressed
+	@cp arch/mips/boot/zcompressed/$@ arch/mips/boot/compressed/$@
+	@echo '  Kernel: arch/mips/boot/compressed/$@ is ready'
 
 ifdef CONFIG_SYS_SUPPORTS_ZBOOT
 # boot/compressed
@@ -450,9 +472,11 @@ define archhelp
 	echo '  uImage.bin           - U-Boot image (uncompressed)'
 	echo '  uImage.bz2           - U-Boot image (bz2)'
 	echo '  uImage.gz            - U-Boot image (gzip)'
+	echo '  uImage.split.gz      - U-boot image (split and gzip)'
 	echo '  uImage.lzma          - U-Boot image (lzma)'
 	echo '  uImage.lzo           - U-Boot image (lzo)'
 	echo '  uzImage.bin          - U-Boot image (self-extracting)'
+	echo '  xImage               - U-Boot-spl xImage (ingenic spl boot)'
 	echo
 	echo '  These will be default as appropriate for a configured platform.'
 	echo

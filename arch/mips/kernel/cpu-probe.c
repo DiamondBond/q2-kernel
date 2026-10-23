@@ -27,6 +27,7 @@
 #include <asm/pgtable-bits.h>
 #include <asm/spram.h>
 #include <linux/uaccess.h>
+#include <linux/kallsyms.h>
 
 #include "fpu-probe.h"
 
@@ -1790,6 +1791,8 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu) 
 
 static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 {
+	unsigned int errorpc;
+	static unsigned int showerrorpc[NR_CPUS];
 	decode_configs(c);
 
 	/*
@@ -1797,6 +1800,19 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 	 * decode_configs().
 	 */
 	decode_config3(c);
+
+	if(showerrorpc[cpu] == 0) {
+		__asm__ __volatile__ (
+				"mfc0  %0, $30,  0   \n\t"
+				"nop                  \n\t"
+				:"=r"(errorpc)
+				:);
+
+		printk("CPU%d RESET ERROR PC:%08X\n", cpu,errorpc);
+		if(kernel_text_address(errorpc))
+			print_ip_sym(KERN_ERR, errorpc);
+		showerrorpc[cpu] = 1;
+	}
 
 	/* XBurst does not implement the CP0 counter. */
 	c->options &= ~MIPS_CPU_COUNTER;
@@ -1806,6 +1822,14 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 	c->icache.flags |= MIPS_CACHE_VTAG;
 
 	switch (c->processor_id & PRID_IMP_MASK) {
+
+	/* XBurst®1 with ISA */
+	case PRID_IMP_XBURST:
+		c->cputype = CPU_XBURST;
+		c->writecombine = _CACHE_UNCACHED_ACCELERATED;
+		__cpu_name[cpu] = "Ingenic XBurst";
+		break;
+
 
 	/* XBurst®1 with MXU1.0/MXU1.1 SIMD ISA */
 	case PRID_IMP_XBURST_REV1:
@@ -1863,7 +1887,9 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 
 	/* XBurst®2 with MXU2.1 SIMD ISA */
 	case PRID_IMP_XBURST2:
-		c->cputype = CPU_XBURST;
+	case PRID_IMP_XBURST2_R2:
+		c->cputype = CPU_XBURST2;
+		c->writecombine = _CACHE_UNCACHED_ACCELERATED;
 		__cpu_name[cpu] = "Ingenic XBurst II";
 		break;
 

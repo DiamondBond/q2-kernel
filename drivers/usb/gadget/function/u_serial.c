@@ -27,6 +27,7 @@
 #include <linux/kthread.h>
 #include <linux/workqueue.h>
 #include <linux/kfifo.h>
+#include <linux/dma-mapping.h>
 
 #include "u_serial.h"
 
@@ -80,9 +81,6 @@
 #define QUEUE_SIZE		16
 #define WRITE_BUF_SIZE		8192		/* TX only */
 #define GS_CONSOLE_BUF_SIZE	8192
-
-/* Prevents race conditions while accessing gser->ioport */
-static DEFINE_SPINLOCK(serial_port_lock);
 
 /* console info */
 struct gs_console {
@@ -170,7 +168,8 @@ gs_alloc_req(struct usb_ep *ep, unsigned len, gfp_t kmalloc_flags)
 
 	if (req != NULL) {
 		req->length = len;
-		req->buf = kmalloc(len, kmalloc_flags);
+		req->buf = kmalloc(ALIGN(len, dma_get_cache_alignment()),
+				 kmalloc_flags);
 		if (req->buf == NULL) {
 			usb_ep_free_request(ep, req);
 			return NULL;
@@ -349,7 +348,7 @@ __acquires(&port->port_lock)
 }
 
 /*
- * RX tasklet takes data out of the RX queue and hands it up to the TTY
+ * RX work takes data out of the RX queue and hands it up to the TTY
  * layer until it refuses to take any more data (or is throttled back).
  * Then it issues reads for any further data.
  *
@@ -571,6 +570,10 @@ static int gs_start_io(struct gs_port *port)
 		/* Unblock any pending writes into our circular buffer, in case
 		 * we didn't in gs_start_tx() */
 		tty_wakeup(port->port.tty);
+
+		/* There is still unpushed data in port->read_queue, continue pushing when not tty_throttled. */
+		if (!list_empty(&port->read_queue) && !tty_throttled(port->port.tty))
+			schedule_delayed_work(&port->push, 0);
 	} else {
 		gs_free_requests(ep, head, &port->read_allocated);
 		gs_free_requests(port->port_usb->in, &port->write_pool,
@@ -712,7 +715,7 @@ raced_with_open:
 
 	/* Iff we're disconnected, there can be no I/O in flight so it's
 	 * ok to free the circular buffer; else just scrub it.  And don't
-	 * let the push tasklet fire again until we're re-opened.
+	 * let the push async work fire again until we're re-opened.
 	 */
 	if (gser == NULL)
 		kfifo_free(&port->port_write_buf);
@@ -1203,7 +1206,7 @@ void gserial_free_line(unsigned char port_num)
 	struct gs_port	*port;
 
 	mutex_lock(&ports[port_num].lock);
-	if (WARN_ON(!ports[port_num].port)) {
+	if (!ports[port_num].port) {
 		mutex_unlock(&ports[port_num].lock);
 		return;
 	}
@@ -1379,10 +1382,8 @@ void gserial_disconnect(struct gserial *gser)
 	if (!port)
 		return;
 
-	spin_lock_irqsave(&serial_port_lock, flags);
-
 	/* tell the TTY glue not to do I/O here any more */
-	spin_lock(&port->port_lock);
+	spin_lock_irqsave(&port->port_lock, flags);
 
 	gs_console_disconnect(port);
 
@@ -1397,8 +1398,7 @@ void gserial_disconnect(struct gserial *gser)
 			tty_hangup(port->port.tty);
 	}
 	port->suspended = false;
-	spin_unlock(&port->port_lock);
-	spin_unlock_irqrestore(&serial_port_lock, flags);
+	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	/* disable endpoints, aborting down any active I/O */
 	usb_ep_disable(gser->out);
@@ -1432,19 +1432,10 @@ EXPORT_SYMBOL_GPL(gserial_suspend);
 
 void gserial_resume(struct gserial *gser)
 {
-	struct gs_port *port;
+	struct gs_port *port = gser->ioport;
 	unsigned long	flags;
 
-	spin_lock_irqsave(&serial_port_lock, flags);
-	port = gser->ioport;
-
-	if (!port) {
-		spin_unlock_irqrestore(&serial_port_lock, flags);
-		return;
-	}
-
-	spin_lock(&port->port_lock);
-	spin_unlock(&serial_port_lock);
+	spin_lock_irqsave(&port->port_lock, flags);
 	port->suspended = false;
 	if (!port->start_delayed) {
 		spin_unlock_irqrestore(&port->port_lock, flags);
@@ -1462,42 +1453,45 @@ EXPORT_SYMBOL_GPL(gserial_resume);
 
 static int userial_init(void)
 {
+	struct tty_driver *driver;
 	unsigned			i;
 	int				status;
 
-	gs_tty_driver = alloc_tty_driver(MAX_U_SERIAL_PORTS);
-	if (!gs_tty_driver)
-		return -ENOMEM;
+	driver = tty_alloc_driver(MAX_U_SERIAL_PORTS, TTY_DRIVER_REAL_RAW |
+			TTY_DRIVER_DYNAMIC_DEV);
+	if (IS_ERR(driver))
+		return PTR_ERR(driver);
 
-	gs_tty_driver->driver_name = "g_serial";
-	gs_tty_driver->name = "ttyGS";
+	driver->driver_name = "g_serial";
+	driver->name = "ttyGS";
 	/* uses dynamically assigned dev_t values */
 
-	gs_tty_driver->type = TTY_DRIVER_TYPE_SERIAL;
-	gs_tty_driver->subtype = SERIAL_TYPE_NORMAL;
-	gs_tty_driver->flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
-	gs_tty_driver->init_termios = tty_std_termios;
+	driver->type = TTY_DRIVER_TYPE_SERIAL;
+	driver->subtype = SERIAL_TYPE_NORMAL;
+	driver->init_termios = tty_std_termios;
 
 	/* 9600-8-N-1 ... matches defaults expected by "usbser.sys" on
 	 * MS-Windows.  Otherwise, most of these flags shouldn't affect
 	 * anything unless we were to actually hook up to a serial line.
 	 */
-	gs_tty_driver->init_termios.c_cflag =
+	driver->init_termios.c_cflag =
 			B9600 | CS8 | CREAD | HUPCL | CLOCAL;
-	gs_tty_driver->init_termios.c_ispeed = 9600;
-	gs_tty_driver->init_termios.c_ospeed = 9600;
+	driver->init_termios.c_ispeed = 9600;
+	driver->init_termios.c_ospeed = 9600;
 
-	tty_set_operations(gs_tty_driver, &gs_tty_ops);
+	tty_set_operations(driver, &gs_tty_ops);
 	for (i = 0; i < MAX_U_SERIAL_PORTS; i++)
 		mutex_init(&ports[i].lock);
 
 	/* export the driver ... */
-	status = tty_register_driver(gs_tty_driver);
+	status = tty_register_driver(driver);
 	if (status) {
 		pr_err("%s: cannot register, err %d\n",
 				__func__, status);
 		goto fail;
 	}
+
+	gs_tty_driver = driver;
 
 	pr_debug("%s: registered %d ttyGS* device%s\n", __func__,
 			MAX_U_SERIAL_PORTS,
@@ -1505,8 +1499,7 @@ static int userial_init(void)
 
 	return status;
 fail:
-	put_tty_driver(gs_tty_driver);
-	gs_tty_driver = NULL;
+	tty_driver_kref_put(driver);
 	return status;
 }
 module_init(userial_init);
@@ -1514,7 +1507,7 @@ module_init(userial_init);
 static void userial_cleanup(void)
 {
 	tty_unregister_driver(gs_tty_driver);
-	put_tty_driver(gs_tty_driver);
+	tty_driver_kref_put(gs_tty_driver);
 	gs_tty_driver = NULL;
 }
 module_exit(userial_cleanup);

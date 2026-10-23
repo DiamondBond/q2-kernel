@@ -1,0 +1,12 @@
+#
+# JZ_SECURITY driver configuration
+#
+config INGENIC_SC_V4
+	tristate "SC-V4 For X2600"
+	depends on SOC_X2600
+	select MPILIB
+	help
+	  Ingenic Security (SC) V4 driver for X2600 platforms.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called sc-v4.

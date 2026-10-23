@@ -1,0 +1,397 @@
+menuconfig FB_INGENIC_DISPLAYS_STAGE_WIP
+	tristate "display stage wip Supported lcd panels"
+	depends on FB_INGENIC_STAGE_WIP
+	select BACKLIGHT_LCD_SUPPORT
+	select LCD_CLASS_DEVICE
+	select BACKLIGHT_CLASS_DEVICE
+
+
+config STAGE_Y88249
+	tristate "lcd panel y88249"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel y88249, for ingenicfb drivers.
+
+config STAGE_KD050HDFIA019
+	tristate "lcd panel kd050hdfia019"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel kd050hdfia019, for ingenicfb drivers.
+
+config STAGE_KD055FHFID018B
+    tristate "lcd panel kd055fhfid018b(1920x1080)"
+    depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+    help
+        lcd panel mipi kd055fhfid018b, for ingenicfb drivers.
+
+config STAGE_MA0060
+	tristate "lcd panel MA0060"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel MA0060, for ingenicfb drivers.
+
+config STAGE_KD050HDFIA020
+	tristate "lcd panel kd050hdfia020"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel kd050hdfia020, for ingenicfb drivers.
+
+config STAGE_FW050
+	tristate "lcd panel FW050"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel FW050, for ingenicfb drivers.
+
+config STAGE_ZC50289HSHD02
+	tristate "lcd panel ZC50289HSHD02"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel ZC50289HSHD02, for ingenicfb drivers.
+
+config STAGE_FW040
+	tristate "lcd panel FW040"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel FW040, for ingenicfb drivers.
+
+config STAGE_FW035
+	tristate "lcd panel FW035"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel FW035, for ingenicfb drivers.
+
+config STAGE_TL040WVS03CT
+	tristate "lcd panel tl040wvs03ct"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel tl040wvs03ct, for ingenicfb drivers.
+
+config STAGE_TL040HDS01CT
+	tristate "lcd panel tl040hds01ct"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel tl040hds01ct, for ingenicfb drivers.
+
+config STAGE_JD9161Z
+	tristate "lcd panel JD9161Z"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel JD9161Z, for ingenicfb drivers.
+
+config STAGE_JD9365D
+	tristate "lcd panel JD9365D"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel JD9365D, for ingenicfb drivers.
+
+config STAGE_JD9365DA_HD9365N883H8J
+	tristate "lcd panel JD9365DA_HD9365N883H8J"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel jd9365DA_HD9365N883H8J, for ingenicfb drivers.
+
+config STAGE_ATK7016
+	tristate "lcd panel ATK7016"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel ATK7016, for ingenicfb drivers.
+
+config STAGE_JD9365
+	tristate "lcd panel JD9365"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel JD9365, for ingenicfb drivers.
+
+config STAGE_GC9203
+	tristate "lcd panel gc9203"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		spi slcd panel r108104_gc9203, for ingenicfb drivers.
+
+config STAGE_ST7701S
+	tristate "lcd panel ST7701S"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel ST7701S, for ingenicfb drivers.
+
+config STAGE_ST7701S_RGB666
+	tristate "lcd panel ST7701S-RGB666"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel ST7701S spi+rgb (fmt:rgb666) interface, for ingenicfb drivers.
+
+config STAGE_ST7701S_DX
+	tristate "lcd panel st7701s_dx3.95ips"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel st7701s_dx3.95ips(mipi)480*480, for ingenicfb drivers.
+
+config STAGE_YTS500XLAI
+	tristate "lcd panel YTS500XLAI"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel YTS500XLAI, for ingenicfb drivers.
+
+config STAGE_YLYM286A
+	tristate "lcd panel ylym286a"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel ylym286a with bridge lt9211, for ingenicfb drivers.
+
+config STAGE_KD035HVFBD037
+	tristate "SLCD KD035HVFBD037 with control IC otm4802a (320x480)"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel KD035HVFBD037, for ingenicfb drivers.
+
+config PANEL_STAGE_MV238FHM_N30
+	tristate "lcd panel MV238FHM-N30"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel MV238FHM-N30 with bridge lt9211, for ingenicfb drivers.
+
+config STAGE_EK79007AD
+	tristate "lcd panel ek79007ad"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel EK79007AD, for ingenicfb drivers.
+
+config STAGE_JD9366
+	tristate "lcd panel JD9366"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel JD9366, for ingenicfb drivers.
+
+config STAGE_BM8766
+	tristate "tft bm8766 (480x800)"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel bm8766, for ingenicfb drivers.
+
+config STAGE_KD050WVFPA029
+	tristate "tft kd050wvfpa029 (800x480)"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel kd050wvfpa029, for ingenicfb drivers.
+
+config STAGE_GWMTF16499B
+	tristate "tft gwmtf16499b (240X320)"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel gwmtf16499b, for ingenicfb drivers.
+
+config STAGE_ST7282
+	tristate "lcd panel st7282"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel st7282, for ingenicfb drivers.
+
+config STAGE_G104X1L04
+	tristate "lcd panel G104X1L04"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel G104X1L04, for ingenicfb drivers.
+
+
+config STAGE_KD035HVFMD057
+	tristate "lcd panel kd035hvfmd057"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel kd035hvfmd057, for ingenicfb drivers.
+
+config STAGE_HC050IG40031
+	tristate "tft panel hc050ig40031(800x480)"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel mipi hc050ig40031, for ingenicfb drivers.
+config STAGE_HC070IK25
+	tristate "lvds lcd hc070ik25 1024x600"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel lvds hc070ik25, for ingenicfb drivers.
+
+config STAGE_HC101I35
+	tristate "lvds lcd hc101i35 1280x800"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel lvds hc101i35, for ingenicfb drivers.
+
+config STAGE_YH_101BJ3001N0_01A00_PM0
+	tristate "lcd panel YH_101BJ3001N0_01A00_PM0"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel YH_101BJ3001N0_01A00_PM0, for ingenicfb drivers.
+
+config STAGE_M140IMN476_N010
+	tristate "lcd panel M140IMN476_N010"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel M140IMN476_N010, for ingenicfb drivers.
+
+config STAGE_NV133WUM_N61
+	tristate "lcd panel NV133WUM-N61 with LT8911"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel BOE NV133WUM-N61 with LT8911 mipi-to-edp bridge, for ingenicfb drivers.
+
+config STAGE_ZX11603_HD275
+	tristate "lcd panel ZX11603_HD275"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel ZX11603_HD275, for ingenicfb drivers.
+
+config STAGE_AXS15231B
+	tristate "lcd panel AXS15231B"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel AXS15231B, for ingenicfb drivers.
+
+config STAGE_SLCD_SPI_AXS15231B
+	tristate "spi slcd panel AXS15231B"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		spi slcd panel AXS15231B, for ingenicfb drivers.
+
+config STAGE_JYM1019603281BC
+    tristate "lcd jym1019603281bc 800x1280"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+    help
+        lcd panel jym1019603281bc, for ingenicfb drivers
+
+config STAGE_JD9365DA
+    tristate "lcd JD9365DA 800x1280"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+    help
+        lcd panel JD9365DA, for ingenicfb drivers
+
+config STAGE_JLT7003A
+    tristate "lcd JLT7003A 1024x600"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+    help
+        lcd panel JLT7003A, for ingenicfb drivers
+
+config STAGE_NV116WHMN47
+    tristate "lcd NV116WHMN47 1366x768"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+    help
+        lcd panel NV116WHMN47, for ingenicfb drivers
+
+config STAGE_S231AJ1
+    tristate "lcd s231aj1 158x1920"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+    help
+        lcd panel s231aj1, for ingenicfb drivers
+
+config STAGE_WIP_HYS458RGB
+	tristate "lcd panel HYS458RGB"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel HYS458 ST7701S spi+rgb interface, for ingenicfb drivers.
+
+config STAGE_GC950363
+    tristate "lcd GC9503 360x960"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+    help
+        lcd panel GC950363, for ingenicfb drivers
+
+config STAGE_JD9365BC
+    tristate "lcd JD9365BC 800x1280"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+    help
+        lcd panel JD9365BC, for ingenicfb drivers
+
+config STAGE_PANEL_ST7789P3
+    tristate "spi panel st7789p3 240*320"
+    depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+    help
+        spi panel ST7789P3,for ingenicfb drivers
+
+config STAGE_PANEL_ST7789P3_NEMC
+    tristate "nemc panel st7789p3 240*320"
+    depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+    help
+        spi panel ST7789P3,for ingenicfb drivers
+
+config STAGE_PANEL_NT140WHM_N45
+    tristate "lcd PANEL_NT140WHM_N45 1366x768"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+    help
+        lcd panel PANEL_NT140WHM_N45, for ingenicfb drivers
+
+config STAGE_FW101
+	tristate "lcd panel FW101"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel FW101, for ingenicfb drivers.
+
+config STAGE_JD9365XHK
+	tristate "lcd panel JD9365-xhk"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel JD9365-xhk, for ingenicfb drivers.
+
+config STAGE_GH7002
+	tristate "lcd panel GH7002"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel GH7002, for ingenicfb drivers.
+
+config STAGE_RM690B0
+	tristate "lcd panel RM690B0"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel RM690B0, for ingenicfb drivers.
+
+config STAGE_PC156CS01_5
+	tristate "EDP panel PC156CS01-5 1080P"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		EDP panel PC156CS01-5, for ingenicfb drivers.
+
+config STAGE_NT116WHM_N21
+	tristate "EDP panel NT116WHM_N21 1366*768"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		EDP panel NT116WHM_N21, for ingenicfb drivers.
+
+config STAGE_Q10140IM7697BA0
+	tristate "lcd panel Q10140IM7697BA0 800x1280"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel Q10140IM7697BA0, for ingenicfb drivers.
+
+config STAGE_HX_C149HAX01
+	tristate "lcd panel HX-C149HAX01 2560x720"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel HX-C149HAX01, for ingenicfb drivers.
+
+config STAGE_GM8775C_M215O30
+	tristate "lcd panel GM8775C_M215O30 1920x1080"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel GM8775C_M215O30 for ingenicfb drivers.
+
+config STAGE_PJ8801H01
+	tristate "lcd panel PJ8801H01 480x1920"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel STAGE_PJ8801H01, for ingenicfb drivers.
+
+config STAGE_LVDS_HJ070
+	tristate "lcd panel hj070 lvds 1024x600"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel hj070 for ingenicfb drivers.
+
+config STAGE_Q070_B0CPT
+	tristate "lcd panel Q070_B0CPT"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel q070_b0cpt, for ingenicfb drivers.
+
+config STAGE_GM8773C
+	tristate "lcd panel GM8773C"
+	depends on FB_INGENIC_DISPLAYS_STAGE_WIP
+	help
+		lcd panel GM8773C, for ingenicfb drivers.

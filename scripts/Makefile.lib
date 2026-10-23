@@ -211,9 +211,11 @@ cpp_flags      = -Wp,-MMD,$(depfile) $(NOSTDINC_FLAGS) $(LINUXINCLUDE)     \
 ld_flags       = $(KBUILD_LDFLAGS) $(ldflags-y) $(LDFLAGS_$(@F))
 
 DTC_INCLUDE    := $(srctree)/scripts/dtc/include-prefixes
+DTC_INCLUDE_ROOT   := $(objtree)/include
 
 dtc_cpp_flags  = -Wp,-MMD,$(depfile).pre.tmp -nostdinc                    \
 		 $(addprefix -I,$(DTC_INCLUDE))                          \
+		 $(addprefix -I,$(DTC_INCLUDE_ROOT))                          \
 		 -undef -D__DTS__
 
 # Useful for describing the dependency of composite objects
@@ -271,6 +273,41 @@ cmd_objcopy = $(OBJCOPY) $(OBJCOPYFLAGS) $(OBJCOPYFLAGS_$(@F)) $< $@
 
 quiet_cmd_gzip = GZIP    $@
       cmd_gzip = cat $(real-prereqs) | $(KGZIP) -n -f -9 > $@
+
+# Split Gzip
+# ---------------------------------------------------------------------------
+
+quiet_cmd_split_gzip = SPLIT AND GZIP    $@
+	  cmd_split_gzip = command -v xxd >/dev/null || { echo "ERROR: xxd not found (install vim-common or equivalent)"; exit 1; }; \
+		rm -drf $(obj)/split_output; \
+		mkdir -p $(obj)/split_output; \
+		touch $(obj)/split_output/split_header; \
+		count=$(CONFIG_KERNEL_SPLIT_MAX_BLOCKS); \
+		split -d -a 4 -b $(CONFIG_KERNEL_SPLIT_BLOCK_SIZE) $(real-prereqs) $(obj)/split_output/vmlinux.bin.split; \
+		for file in $(obj)/split_output/vmlinux.bin.split* ; do $(KGZIP) -k -n -f -9 $$file; done; \
+		for file in $(obj)/split_output/*.gz ; do file_size=$$(stat -c "%s" "$$file"); \
+			echo "$$(printf "%08x" $$file_size)" | xxd -r -ps | cat >> $(obj)/split_output/split_header; \
+			echo "$$file  file_size = $$file_size"; \
+			count=$$(expr "$$count" - 1); \
+			done; \
+		for i in $$(seq 1 "$$count"); do echo "$$(printf "%08x" 0)" | xxd -r -ps | cat >> $(obj)/split_output/split_header; \
+			done; \
+		count=$(CONFIG_KERNEL_SPLIT_MAX_BLOCKS); \
+		for file in $(obj)/split_output/vmlinux.bin.split* ; do \
+			case "$$file" in \
+			*.gz) \
+				;; \
+			*) \
+				file_size=$$($(CONFIG_SHELL) $(srctree)/scripts/file-size.sh $$file); \
+				echo "$$(printf "%08x" $$file_size)" | xxd -r -ps | cat >> $(obj)/split_output/split_header; \
+				count=$$(expr "$$count" - 1); \
+			esac \
+			done; \
+		for i in $$(seq 1 "$$count"); do echo "$$(printf "%08x" 0)" | xxd -r -ps | cat >> $(obj)/split_output/split_header; \
+			done; \
+		cat $(obj)/split_output/*.gz > $(obj)/vmlinux.bin.split.gz; \
+		cat $(obj)/split_output/split_header $(obj)/vmlinux.bin.split.gz > temp && mv temp $(obj)/vmlinux.bin.split.gz; \
+		rm -drf $(obj)/split_output
 
 # DTC
 # ---------------------------------------------------------------------------
@@ -379,6 +416,86 @@ quiet_cmd_lz4 = LZ4     $@
       cmd_lz4 = { cat $(real-prereqs) | $(LZ4) -l -c1 stdin stdout; \
                   $(size_append); } > $@
 
+# Split Lzma
+# ---------------------------------------------------------------------------
+
+quiet_cmd_split_lzma = SPLIT AND LZMA    $@
+	  cmd_split_lzma = command -v xxd >/dev/null || { echo "ERROR: xxd not found (install vim-common or equivalent)"; exit 1; }; \
+		rm -drf $(obj)/split_output; \
+		mkdir -p $(obj)/split_output; \
+		touch $(obj)/split_output/split_header; \
+		count=$(CONFIG_KERNEL_SPLIT_MAX_BLOCKS); \
+		split -d -a 4 -b $(CONFIG_KERNEL_SPLIT_BLOCK_SIZE) $(real-prereqs) $(obj)/split_output/vmlinux.bin.split; \
+		for file in $(obj)/split_output/vmlinux.bin.split* ; do $(LZMA) -9 -k $$file; done; \
+		for file in $(obj)/split_output/*.lzma ; do file_size=$$(stat -c "%s" "$$file"); \
+			echo "$$(printf "%08x" $$file_size)" | xxd -r -ps | cat >> $(obj)/split_output/split_header; \
+			echo "$$file  file_size = $$file_size"; \
+			count=$$(expr "$$count" - 1); \
+			done; \
+		for i in $$(seq 1 "$$count"); do echo "$$(printf "%08x" 0)" | xxd -r -ps | cat >> $(obj)/split_output/split_header; \
+			done; \
+		count=$(CONFIG_KERNEL_SPLIT_MAX_BLOCKS); \
+		for file in $(obj)/split_output/vmlinux.bin.split* ; do \
+			case "$$file" in \
+			*.lzma) \
+				;; \
+			*) \
+				file_size=$$($(CONFIG_SHELL) $(srctree)/scripts/file-size.sh $$file); \
+				echo "$$(printf "%08x" $$file_size)" | xxd -r -ps | cat >> $(obj)/split_output/split_header; \
+				count=$$(expr "$$count" - 1); \
+			esac \
+			done; \
+		for i in $$(seq 1 "$$count"); do echo "$$(printf "%08x" 0)" | xxd -r -ps | cat >> $(obj)/split_output/split_header; \
+			done; \
+		cat $(obj)/split_output/*.lzma > $(obj)/vmlinux.bin.split.lzma; \
+		cat $(obj)/split_output/split_header $(obj)/vmlinux.bin.split.lzma > temp && mv temp $(obj)/vmlinux.bin.split.lzma; \
+		rm -drf $(obj)/split_output
+
+# Split ZSTD
+# ---------------------------------------------------------------------------
+
+quiet_cmd_split_zstd = SPLIT AND ZSTD    $@
+	  cmd_split_zstd = command -v xxd >/dev/null || { echo "ERROR: xxd not found (install vim-common or equivalent)"; exit 1; }; \
+		rm -drf $(obj)/split_output; \
+		mkdir -p $(obj)/split_output; \
+		touch $(obj)/split_output/split_header; \
+		count=$(CONFIG_KERNEL_SPLIT_MAX_BLOCKS); \
+		split -d -a 4 -b $(CONFIG_KERNEL_SPLIT_BLOCK_SIZE) $(real-prereqs) $(obj)/split_output/vmlinux.bin.split; \
+		chunk_count=0; \
+		for file in $(obj)/split_output/vmlinux.bin.split* ; do chunk_count=$$((chunk_count + 1)); done; \
+		if [ "$$chunk_count" -gt "$(CONFIG_KERNEL_SPLIT_MAX_BLOCKS)" ]; then \
+			echo "ERROR: split chunk count $$chunk_count exceeds CONFIG_KERNEL_SPLIT_MAX_BLOCKS=$(CONFIG_KERNEL_SPLIT_MAX_BLOCKS)"; \
+			rm -drf $(obj)/split_output; \
+			exit 1; \
+		fi; \
+		for file in $(obj)/split_output/vmlinux.bin.split* ; do $(ZSTD) -16 --check -q -f -k $$file; done; \
+		for file in $(obj)/split_output/*.zst ; do file_size=$$(stat -c "%s" "$$file"); \
+			echo "$$(printf "%08x" $$file_size)" | xxd -r -ps | cat >> $(obj)/split_output/split_header; \
+			echo "$$file  file_size = $$file_size"; \
+			count=$$((count - 1)); \
+			done; \
+		while [ "$$count" -gt 0 ]; do echo "$$(printf "%08x" 0)" | xxd -r -ps | cat >> $(obj)/split_output/split_header; \
+			count=$$((count - 1)); \
+			done; \
+		count=$(CONFIG_KERNEL_SPLIT_MAX_BLOCKS); \
+		for file in $(obj)/split_output/vmlinux.bin.split* ; do \
+			case "$$file" in \
+			*.zst) \
+				;; \
+			*) \
+				file_size=$$($(CONFIG_SHELL) $(srctree)/scripts/file-size.sh $$file); \
+				echo "$$(printf "%08x" $$file_size)" | xxd -r -ps | cat >> $(obj)/split_output/split_header; \
+				count=$$((count - 1)); \
+			esac \
+			done; \
+		while [ "$$count" -gt 0 ]; do echo "$$(printf "%08x" 0)" | xxd -r -ps | cat >> $(obj)/split_output/split_header; \
+			count=$$((count - 1)); \
+			done; \
+		cat $(obj)/split_output/*.zst > $@.payload; \
+		cat $(obj)/split_output/split_header $@.payload > $@; \
+		rm -f $@.payload; \
+		rm -drf $(obj)/split_output
+
 # U-Boot mkimage
 # ---------------------------------------------------------------------------
 
@@ -436,13 +553,12 @@ quiet_cmd_xzmisc = XZMISC  $@
 # the file is corrupt. This is expected.
 #
 # zstd uses a maximum window size of 8 MB. zstd22 uses a maximum window size of
-# 128 MB. zstd22 is used for kernel compression because it is decompressed in a
-# single pass, so zstd doesn't need to allocate a window buffer. When streaming
-# decompression is used, like initramfs decompression, zstd22 should likely not
-# be used because it would require zstd to allocate a 128 MB buffer.
+# 128 MB and should only be used by callers that explicitly want ultra mode.
+# Streaming decompression, like initramfs decompression, should not use zstd22
+# because it would require zstd to allocate a 128 MB buffer.
 
 quiet_cmd_zstd = ZSTD    $@
-      cmd_zstd = { cat $(real-prereqs) | $(ZSTD) -19; $(size_append); } > $@
+      cmd_zstd = { cat $(real-prereqs) | $(ZSTD) -16 --no-check; $(size_append); } > $@
 
 quiet_cmd_zstd22 = ZSTD22  $@
       cmd_zstd22 = { cat $(real-prereqs) | $(ZSTD) -22 --ultra; $(size_append); } > $@

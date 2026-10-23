@@ -1,0 +1,22 @@
+menuconfig INGENIC_JPEG_V4L2
+	bool "Ingenic JPEG V4L2 codec support"
+	depends on SOC_X2600 || SOC_AD100
+	default n
+	help
+	  Support for Ingenic JPEG operations using V4L2 framework.
+
+if INGENIC_JPEG_V4L2
+
+config INGENIC_JPEG_V4L2_DEC
+	tristate "Ingenic JPEG V4L2 decoder"
+	default n
+	help
+	  Support for Ingenic JPEG decoding operations using V4L2 framework.
+
+config INGENIC_JPEG_V4L2_ENC
+	tristate "Ingenic JPEG V4L2 encoder"
+	default n
+	help
+	  Support for Ingenic JPEG encoding operations using V4L2 framework.
+
+endif # INGENIC_JPEG_V4L2

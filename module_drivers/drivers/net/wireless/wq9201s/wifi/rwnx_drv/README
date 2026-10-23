@@ -1,0 +1,16 @@
+#
+# Build config for Raspberry
+#
+#KERNELDIR ?= /home/kiwi/Raspberry/linux
+#CROSSCOMPILEPRE ?= aarch64-linux-gnu-
+#ARCH ?= "arm64"
+
+#
+# Build config for Qualcommon AP135 (MIPS big-endian system)
+# cross build on WQ external net 192.168.100.62
+#
+# OPENWRT_DIR ?= /home/WUQI-TECH/yuan.sam/project/openwrt
+# STAGING_DIR ?= ${OPENWRT_DIR}/staging_dir
+# ARCH ?= mips
+# CROSSCOMPILEPRE ?= ${STAGING_DIR}/toolchain-mips_24kc_gcc-7.3.0_musl/bin/mips-openwrt-linux-
+# KERNELDIR ?= ${OPENWRT_DIR}/build_dir/target-mips_24kc_musl/linux-ar71xx_generic/linux-4.9.184

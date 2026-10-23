@@ -208,10 +208,10 @@ static inline void invalidate_tcache_page(unsigned long addr)
 static inline void extra##blast_##pfx##cache##lsize(void)		\
 {									\
 	unsigned long start = INDEX_BASE;				\
-	unsigned long end = start + current_cpu_data.desc.waysize;	\
-	unsigned long ws_inc = 1UL << current_cpu_data.desc.waybit;	\
-	unsigned long ws_end = current_cpu_data.desc.ways <<		\
-			       current_cpu_data.desc.waybit;		\
+	unsigned long end = start + raw_current_cpu_data.desc.waysize;	\
+	unsigned long ws_inc = 1UL << raw_current_cpu_data.desc.waybit;	\
+	unsigned long ws_end = raw_current_cpu_data.desc.ways <<		\
+			       raw_current_cpu_data.desc.waybit;		\
 	unsigned long ws, addr;						\
 									\
 	for (ws = 0; ws < ws_end; ws += ws_inc)				\
@@ -233,12 +233,12 @@ static inline void extra##blast_##pfx##cache##lsize##_page(unsigned long page) \
 									\
 static inline void extra##blast_##pfx##cache##lsize##_page_indexed(unsigned long page) \
 {									\
-	unsigned long indexmask = current_cpu_data.desc.waysize - 1;	\
+	unsigned long indexmask = raw_current_cpu_data.desc.waysize - 1;	\
 	unsigned long start = INDEX_BASE + (page & indexmask);		\
 	unsigned long end = start + PAGE_SIZE;				\
-	unsigned long ws_inc = 1UL << current_cpu_data.desc.waybit;	\
-	unsigned long ws_end = current_cpu_data.desc.ways <<		\
-			       current_cpu_data.desc.waybit;		\
+	unsigned long ws_inc = 1UL << raw_current_cpu_data.desc.waybit;	\
+	unsigned long ws_end = raw_current_cpu_data.desc.ways <<		\
+			       raw_current_cpu_data.desc.waybit;		\
 	unsigned long ws, addr;						\
 									\
 	for (ws = 0; ws < ws_end; ws += ws_inc)				\
@@ -359,10 +359,10 @@ __BUILD_BLAST_CACHE_RANGE(inv_s, scache, Hit_Invalidate_SD, , )
 static inline void blast_##pfx##cache##lsize##_node(long node)		\
 {									\
 	unsigned long start = CAC_BASE | nid_to_addrbase(node);		\
-	unsigned long end = start + current_cpu_data.desc.waysize;	\
-	unsigned long ws_inc = 1UL << current_cpu_data.desc.waybit;	\
-	unsigned long ws_end = current_cpu_data.desc.ways <<		\
-			       current_cpu_data.desc.waybit;		\
+	unsigned long end = start + raw_current_cpu_data.desc.waysize;	\
+	unsigned long ws_inc = 1UL << raw_current_cpu_data.desc.waybit;	\
+	unsigned long ws_end = raw_current_cpu_data.desc.ways <<		\
+			       raw_current_cpu_data.desc.waybit;		\
 	unsigned long ws, addr;						\
 									\
 	for (ws = 0; ws < ws_end; ws += ws_inc)				\

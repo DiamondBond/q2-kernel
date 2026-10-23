@@ -10,7 +10,6 @@
 #include "sama5d2-pinfunc.h"
 #include <dt-bindings/mfd/atmel-flexcom.h>
 #include <dt-bindings/gpio/gpio.h>
-#include <dt-bindings/input/input.h>
 #include <dt-bindings/regulator/active-semi,8945a-regulator.h>
 
 / {
@@ -347,7 +346,7 @@
 			};
 
 			shdwc@f8048010 {
-				debounce-delay-us = <976>;
+				atmel,shdwc-debouncer = <976>;
 				atmel,wakeup-rtc-timer;
 
 				input@0 {
@@ -714,7 +713,7 @@
 		bp1 {
 			label = "PB_USER";
 			gpios = <&pioA PIN_PB9 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_PROG1>;
+			linux,code = <0x104>;
 			wakeup-source;
 		};
 	};

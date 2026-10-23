@@ -31,6 +31,7 @@
 
 #include <linux/usb/gadgetfs.h>
 #include <linux/usb/gadget.h>
+#include <linux/dma-mapping.h>
 
 
 /*
@@ -110,8 +111,6 @@ enum ep0_state {
 /* enough for the whole queue: most events invalidate others */
 #define	N_EVENT			5
 
-#define RBUF_SIZE		256
-
 struct dev_data {
 	spinlock_t			lock;
 	refcount_t			count;
@@ -146,7 +145,7 @@ struct dev_data {
 	struct dentry			*dentry;
 
 	/* except this scratch i/o buffer for ep0 */
-	u8				rbuf[RBUF_SIZE];
+	u8				rbuf [256];
 };
 
 static inline void get_dev (struct dev_data *data)
@@ -229,7 +228,6 @@ static void put_ep (struct ep_data *data)
  */
 
 static const char *CHIP;
-static DEFINE_MUTEX(sb_mutex);		/* Serialize superblock operations */
 
 /*----------------------------------------------------------------------*/
 
@@ -363,7 +361,6 @@ ep_io (struct ep_data *epdata, void *buf, unsigned len)
 				spin_unlock_irq (&epdata->dev->lock);
 
 				DBG (epdata->dev, "endpoint gone\n");
-				wait_for_completion(&done);
 				epdata->status = -ENODEV;
 			}
 		}
@@ -502,7 +499,8 @@ static void ep_aio_complete(struct usb_ep *ep, struct usb_request *req)
 		iocb->private = NULL;
 		/* aio_complete() reports bytes-transferred _and_ faults */
 
-		iocb->ki_complete(iocb, req->actual ? req->actual : req->status,
+		iocb->ki_complete(iocb,
+				req->actual ? req->actual : (long)req->status,
 				req->status);
 	} else {
 		/* ep_copy_to_user() won't report both; we hide some faults */
@@ -601,7 +599,7 @@ ep_read_iter(struct kiocb *iocb, struct iov_iter *to)
 		return -EBADMSG;
 	}
 
-	buf = kmalloc(len, GFP_KERNEL);
+	buf = kmalloc(ALIGN(len, dma_get_cache_alignment()), GFP_KERNEL);
 	if (unlikely(!buf)) {
 		mutex_unlock(&epdata->lock);
 		return -ENOMEM;
@@ -663,7 +661,7 @@ ep_write_iter(struct kiocb *iocb, struct iov_iter *from)
 		return -EBADMSG;
 	}
 
-	buf = kmalloc(len, GFP_KERNEL);
+	buf = kmalloc(ALIGN(len, dma_get_cache_alignment()), GFP_KERNEL);
 	if (unlikely(!buf)) {
 		mutex_unlock(&epdata->lock);
 		return -ENOMEM;
@@ -896,7 +894,8 @@ static int setup_req (struct usb_ep *ep, struct usb_request *req, u16 len)
 		return -EBUSY;
 	}
 	if (len > sizeof (dev->rbuf))
-		req->buf = kmalloc(len, GFP_ATOMIC);
+		req->buf = kmalloc(ALIGN(len, dma_get_cache_alignment()),
+				 GFP_ATOMIC);
 	if (req->buf == NULL) {
 		req->buf = dev->rbuf;
 		return -ENOMEM;
@@ -1336,18 +1335,6 @@ gadgetfs_setup (struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	struct usb_gadgetfs_event	*event;
 	u16				w_value = le16_to_cpu(ctrl->wValue);
 	u16				w_length = le16_to_cpu(ctrl->wLength);
-
-	if (w_length > RBUF_SIZE) {
-		if (ctrl->bRequestType & USB_DIR_IN) {
-			/* Cast away the const, we are going to overwrite on purpose. */
-			__le16 *temp = (__le16 *)&ctrl->wLength;
-
-			*temp = cpu_to_le16(RBUF_SIZE);
-			w_length = RBUF_SIZE;
-		} else {
-			return value;
-		}
-	}
 
 	spin_lock (&dev->lock);
 	dev->setup_abort = 0;
@@ -1830,9 +1817,8 @@ dev_config (struct file *fd, const char __user *buf, size_t len, loff_t *ptr)
 	spin_lock_irq (&dev->lock);
 	value = -EINVAL;
 	if (dev->buf) {
-		spin_unlock_irq(&dev->lock);
 		kfree(kbuf);
-		return value;
+		goto fail;
 	}
 	dev->buf = kbuf;
 
@@ -1879,8 +1865,8 @@ dev_config (struct file *fd, const char __user *buf, size_t len, loff_t *ptr)
 
 	value = usb_gadget_probe_driver(&gadgetfs_driver);
 	if (value != 0) {
-		spin_lock_irq(&dev->lock);
-		goto fail;
+		kfree (dev->buf);
+		dev->buf = NULL;
 	} else {
 		/* at this point "good" hardware has for the first time
 		 * let the USB the host see us.  alternatively, if users
@@ -1897,9 +1883,6 @@ dev_config (struct file *fd, const char __user *buf, size_t len, loff_t *ptr)
 	return value;
 
 fail:
-	dev->config = NULL;
-	dev->hs_config = NULL;
-	dev->dev = NULL;
 	spin_unlock_irq (&dev->lock);
 	pr_debug ("%s: %s fail %zd, %p\n", shortname, __func__, value, dev);
 	kfree (dev->buf);
@@ -2013,20 +1996,13 @@ gadgetfs_fill_super (struct super_block *sb, struct fs_context *fc)
 {
 	struct inode	*inode;
 	struct dev_data	*dev;
-	int		rc;
 
-	mutex_lock(&sb_mutex);
-
-	if (the_device) {
-		rc = -ESRCH;
-		goto Done;
-	}
+	if (the_device)
+		return -ESRCH;
 
 	CHIP = usb_get_gadget_udc_name();
-	if (!CHIP) {
-		rc = -ENODEV;
-		goto Done;
-	}
+	if (!CHIP)
+		return -ENODEV;
 
 	/* superblock */
 	sb->s_blocksize = PAGE_SIZE;
@@ -2063,17 +2039,13 @@ gadgetfs_fill_super (struct super_block *sb, struct fs_context *fc)
 	 * from binding to a controller.
 	 */
 	the_device = dev;
-	rc = 0;
-	goto Done;
+	return 0;
 
- Enomem:
+Enomem:
 	kfree(CHIP);
 	CHIP = NULL;
-	rc = -ENOMEM;
 
- Done:
-	mutex_unlock(&sb_mutex);
-	return rc;
+	return -ENOMEM;
 }
 
 /* "mount -t gadgetfs path /dev/gadget" ends up here */
@@ -2095,7 +2067,6 @@ static int gadgetfs_init_fs_context(struct fs_context *fc)
 static void
 gadgetfs_kill_sb (struct super_block *sb)
 {
-	mutex_lock(&sb_mutex);
 	kill_litter_super (sb);
 	if (the_device) {
 		put_dev (the_device);
@@ -2103,7 +2074,6 @@ gadgetfs_kill_sb (struct super_block *sb)
 	}
 	kfree(CHIP);
 	CHIP = NULL;
-	mutex_unlock(&sb_mutex);
 }
 
 /*----------------------------------------------------------------------*/

@@ -1420,7 +1420,7 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 	case V4L2_META_FMT_UVC:		descr = "UVC Payload Header Metadata"; break;
 	case V4L2_META_FMT_D4XX:	descr = "Intel D4xx UVC Metadata"; break;
 	case V4L2_META_FMT_VIVID:       descr = "Vivid Metadata"; break;
-
+	case V4L2_PIX_FMT_JZ420B:   descr = "Ingenic TILE420"; break;
 	default:
 		/* Compressed formats */
 		flags = V4L2_FMT_FLAG_COMPRESSED;
@@ -2402,6 +2402,8 @@ static int v4l_g_crop(const struct v4l2_ioctl_ops *ops,
 	};
 	int ret;
 
+	if (ops->vidioc_g_crop)
+		return ops->vidioc_g_crop(file, fh, p);
 	/* simulate capture crop using selection api */
 
 	/* crop means compose for output devices */
@@ -2432,6 +2434,8 @@ static int v4l_s_crop(const struct v4l2_ioctl_ops *ops,
 		.r = p->c,
 	};
 
+	if (ops->vidioc_s_crop)
+		return ops->vidioc_s_crop(file, fh, p);
 	/* simulate capture crop using selection api */
 
 	/* crop means compose for output devices */
@@ -2509,6 +2513,9 @@ static int v4l_cropcap(const struct v4l2_ioctl_ops *ops,
 	if (ret)
 		return ret;
 	p->defrect = s.r;
+
+	if (ops->vidioc_cropcap)
+		return ops->vidioc_cropcap(file, fh, p);
 
 	return 0;
 }

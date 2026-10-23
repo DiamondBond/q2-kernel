@@ -1,0 +1,11 @@
+#
+# JZ_SECURITY driver configuration
+#
+config INGENIC_SC_V2
+	tristate "SC-V2 For X2000"
+	depends on SOC_X2000
+	help
+	  Ingenic Security (SC) V2 driver for X2000 platforms.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called sc-v2.

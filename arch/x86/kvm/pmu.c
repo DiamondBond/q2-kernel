@@ -13,8 +13,6 @@
 #include <linux/types.h>
 #include <linux/kvm_host.h>
 #include <linux/perf_event.h>
-#include <linux/bsearch.h>
-#include <linux/sort.h>
 #include <asm/perf_event.h>
 #include "x86.h"
 #include "cpuid.h"
@@ -97,7 +95,7 @@ static void kvm_perf_overflow_intr(struct perf_event *perf_event,
 }
 
 static void pmc_reprogram_counter(struct kvm_pmc *pmc, u32 type,
-				  u64 config, bool exclude_user,
+				  unsigned config, bool exclude_user,
 				  bool exclude_kernel, bool intr,
 				  bool in_tx, bool in_tx_cp)
 {
@@ -170,21 +168,13 @@ static bool pmc_resume_counter(struct kvm_pmc *pmc)
 	return true;
 }
 
-static int cmp_u64(const void *pa, const void *pb)
-{
-	u64 a = *(u64 *)pa;
-	u64 b = *(u64 *)pb;
-
-	return (a > b) - (a < b);
-}
-
 void reprogram_gp_counter(struct kvm_pmc *pmc, u64 eventsel)
 {
-	u64 config;
-	u32 type = PERF_TYPE_RAW;
+	unsigned config, type = PERF_TYPE_RAW;
+	u8 event_select, unit_mask;
 	struct kvm *kvm = pmc->vcpu->kvm;
 	struct kvm_pmu_event_filter *filter;
-	struct kvm_pmu *pmu = vcpu_to_pmu(pmc->vcpu);
+	int i;
 	bool allow_event = true;
 
 	if (eventsel & ARCH_PERFMON_EVENTSEL_PIN_CONTROL)
@@ -199,29 +189,37 @@ void reprogram_gp_counter(struct kvm_pmc *pmc, u64 eventsel)
 
 	filter = srcu_dereference(kvm->arch.pmu_event_filter, &kvm->srcu);
 	if (filter) {
-		__u64 key = eventsel & AMD64_RAW_EVENT_MASK_NB;
-
-		if (bsearch(&key, filter->events, filter->nevents,
-			    sizeof(__u64), cmp_u64))
-			allow_event = filter->action == KVM_PMU_EVENT_ALLOW;
-		else
-			allow_event = filter->action == KVM_PMU_EVENT_DENY;
+		for (i = 0; i < filter->nevents; i++)
+			if (filter->events[i] ==
+			    (eventsel & AMD64_RAW_EVENT_MASK_NB))
+				break;
+		if (filter->action == KVM_PMU_EVENT_ALLOW &&
+		    i == filter->nevents)
+			allow_event = false;
+		if (filter->action == KVM_PMU_EVENT_DENY &&
+		    i < filter->nevents)
+			allow_event = false;
 	}
 	if (!allow_event)
 		return;
+
+	event_select = eventsel & ARCH_PERFMON_EVENTSEL_EVENT;
+	unit_mask = (eventsel & ARCH_PERFMON_EVENTSEL_UMASK) >> 8;
 
 	if (!(eventsel & (ARCH_PERFMON_EVENTSEL_EDGE |
 			  ARCH_PERFMON_EVENTSEL_INV |
 			  ARCH_PERFMON_EVENTSEL_CMASK |
 			  HSW_IN_TX |
 			  HSW_IN_TX_CHECKPOINTED))) {
-		config = kvm_x86_ops.pmu_ops->pmc_perf_hw_id(pmc);
+		config = kvm_x86_ops.pmu_ops->find_arch_event(pmc_to_pmu(pmc),
+						      event_select,
+						      unit_mask);
 		if (config != PERF_COUNT_HW_MAX)
 			type = PERF_TYPE_HARDWARE;
 	}
 
 	if (type == PERF_TYPE_RAW)
-		config = eventsel & pmu->raw_event_mask;
+		config = eventsel & X86_RAW_EVENT_MASK;
 
 	if (pmc->current_config == eventsel && pmc_resume_counter(pmc))
 		return;
@@ -513,11 +511,6 @@ int kvm_vm_ioctl_set_pmu_event_filter(struct kvm *kvm, void __user *argp)
 
 	/* Ensure nevents can't be changed between the user copies. */
 	*filter = tmp;
-
-	/*
-	 * Sort the in-kernel list so that we can search it with bsearch.
-	 */
-	sort(&filter->events, filter->nevents, sizeof(__u64), cmp_u64, NULL);
 
 	mutex_lock(&kvm->lock);
 	filter = rcu_replace_pointer(kvm->arch.pmu_event_filter, filter,

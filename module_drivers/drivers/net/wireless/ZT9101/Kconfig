@@ -1,0 +1,7 @@
+config ZT9101_WLAN_SUPPORT
+	tristate "ZT9101xV20 wireless Support"
+	default n
+	help
+	  This is support for ZT9101xV20 wireless chip.
+
+

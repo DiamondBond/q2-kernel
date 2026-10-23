@@ -64,6 +64,7 @@ static int v_recv_cmd_unlink(struct vudc *udc,
 {
 	unsigned long flags;
 	struct urbp *urb_p;
+	bool kick = false;
 
 	spin_lock_irqsave(&udc->lock, flags);
 	list_for_each_entry(urb_p, &udc->urb_queue, urb_entry) {
@@ -71,8 +72,9 @@ static int v_recv_cmd_unlink(struct vudc *udc,
 			continue;
 		urb_p->urb->unlinked = -ECONNRESET;
 		urb_p->seqnum = pdu->base.seqnum;
-		v_kick_timer(udc, jiffies);
 		spin_unlock_irqrestore(&udc->lock, flags);
+		if (kick)
+			v_kick_timer(udc);
 		return 0;
 	}
 	/* Not found, completed / not queued */
@@ -173,9 +175,9 @@ static int v_recv_cmd_submit(struct vudc *udc,
 		goto free_urbp;
 
 	spin_lock_irqsave(&udc->lock, flags);
-	v_kick_timer(udc, jiffies);
 	list_add_tail(&urb_p->urb_entry, &udc->urb_queue);
 	spin_unlock_irqrestore(&udc->lock, flags);
+	v_kick_timer(udc);
 
 	return 0;
 

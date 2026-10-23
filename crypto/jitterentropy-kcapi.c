@@ -197,16 +197,44 @@ static struct rng_alg jent_alg = {
 	}
 };
 
-static int __init jent_mod_init(void)
+#ifdef CONFIG_CRYPTO_JENT_QUICK_START
+#include <linux/kthread.h>
+
+static int jent_entropy_init_thread(void *data)
 {
 	int ret = 0;
-
 	ret = jent_entropy_init();
 	if (ret) {
 		pr_info("jitterentropy: Initialization failed with host not compliant with requirements: %d\n", ret);
 		return -EFAULT;
 	}
-	return crypto_register_rng(&jent_alg);
+
+	ret = crypto_register_rng(&jent_alg);
+	return ret;
+}
+#endif
+
+static int __init jent_mod_init(void)
+{
+	int ret = 0;
+#ifdef CONFIG_CRYPTO_JENT_QUICK_START
+	struct task_struct *thread;
+	thread = kthread_create(jent_entropy_init_thread, NULL, "jent_entropy_init_thread");
+	if (IS_ERR(thread)) {
+		printk(KERN_ERR "Failed to create jent_entropy_init_thread thread\n");
+		return -ENOMEM;
+	}
+	wake_up_process(thread);
+#else
+	ret = jent_entropy_init();
+	if (ret) {
+		pr_info("jitterentropy: Initialization failed with host not compliant with requirements: %d\n", ret);
+		return -EFAULT;
+	}
+
+	ret = crypto_register_rng(&jent_alg);
+#endif
+	return ret;
 }
 
 static void __exit jent_mod_exit(void)

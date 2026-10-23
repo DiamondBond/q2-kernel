@@ -85,6 +85,7 @@
 #define CAN_ERR_PROT_ACTIVE      0x40 /* active error announcement */
 #define CAN_ERR_PROT_TX          0x80 /* error occurred on transmission */
 
+
 /* error in CAN protocol (location) / data[3] */
 #define CAN_ERR_PROT_LOC_UNSPEC  0x00 /* unspecified */
 #define CAN_ERR_PROT_LOC_SOF     0x03 /* start of frame */
@@ -106,6 +107,12 @@
 #define CAN_ERR_PROT_LOC_ACK_DEL 0x1B /* ACK delimiter */
 #define CAN_ERR_PROT_LOC_EOF     0x1A /* end of frame */
 #define CAN_ERR_PROT_LOC_INTERM  0x12 /* intermission */
+#define CAN_ERR_PROT_LOC_ACTIVE  0x11 /* Active error flag */
+#define CAN_ERR_PROT_LOC_PASSIVE 0x16 /* Passive error flag */
+#define CAN_ERR_PROT_LOC_TOL_DOM 0x13 /* Tolerate dominant bits (Note) */
+#define CAN_ERR_PROT_LOC_ERR_DEL 0x17 /* Error delimiter */
+#define CAN_ERR_PROT_LOC_OVERLOAD 0x1C /* Overload flag */
+
 
 /* error status of CAN-transceiver / data[4] */
 /*                                             CANH CANL */

@@ -108,6 +108,7 @@ int arch_prepare_kprobe(struct kprobe *p)
 	int ret = 0;
 	struct kprobe *prev;
 	struct ppc_inst insn = ppc_inst_read((struct ppc_inst *)p->addr);
+	struct ppc_inst prefix = ppc_inst_read((struct ppc_inst *)(p->addr - 1));
 
 	if ((unsigned long)p->addr & 0x03) {
 		printk("Attempt to register kprobe at an unaligned address\n");
@@ -115,8 +116,7 @@ int arch_prepare_kprobe(struct kprobe *p)
 	} else if (IS_MTMSRD(insn) || IS_RFID(insn) || IS_RFI(insn)) {
 		printk("Cannot register a kprobe on rfi/rfid or mtmsr[d]\n");
 		ret = -EINVAL;
-	} else if ((unsigned long)p->addr & ~PAGE_MASK &&
-		   ppc_inst_prefixed(ppc_inst_read((struct ppc_inst *)(p->addr - 1)))) {
+	} else if (ppc_inst_prefixed(prefix)) {
 		printk("Cannot register a kprobe on the second word of prefixed instruction\n");
 		ret = -EINVAL;
 	}
@@ -276,8 +276,7 @@ int kprobe_handler(struct pt_regs *regs)
 	if (user_mode(regs))
 		return 0;
 
-	if (!IS_ENABLED(CONFIG_BOOKE) &&
-	    (!(regs->msr & MSR_IR) || !(regs->msr & MSR_DR)))
+	if (!(regs->msr & MSR_IR) || !(regs->msr & MSR_DR))
 		return 0;
 
 	/*

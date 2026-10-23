@@ -366,7 +366,7 @@ updateblock:
 	mov	frame_RSPSAVE(%rsp), %rsp
 
 nowork:
-	RET
+	ret
 SYM_FUNC_END(sha512_transform_ssse3)
 
 ########################################################################

@@ -64,4 +64,15 @@ config RPMSG_VIRTIO
 	select RPMSG
 	select VIRTIO
 
+if RPMSG_VIRTIO
+config RPMSG_VIRTIO_NO_NEED_REPLY
+	bool "Receive data no need reply"
+	default y
+	depends on RPMSG_VIRTIO
+	help
+	  Say y here to After receiving data, do not send a reply to interrupt
+	  reduce the number of interruptions.
+
+endif # RPMSG_VIRTIO
+
 endmenu

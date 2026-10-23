@@ -1,0 +1,266 @@
+/dts-v1/;
+
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/dts-stage/x1600/x1600.dtsi>
+#include <generated/autoconf.h>
+
+/ {
+	compatible = "ingenic,halley6_v20", "ingenic,halley6_v20";
+
+	/*chosen {
+		bootargs = "console=ttyS1,115200 mem=128M@0x0 ip=off init=/linuxrc ubi.mtd=3 root=ubi0:rootfs ubi.mtd=4 rootfstype=ubifs rw";
+	};*/
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges =<>;
+
+		/*
+			reserved_mem:
+			riscv_mcu_ram:
+			vdev0buffer:
+			预留内存大小与芯片ddr容量相关，系统启动会自动选择上面不同容量的配置。
+			此处 reg <0 0>会被动态修改.
+		*/
+		reserved_memory: reserved_mem {
+		      compatible = "shared-dma-pool";
+		      reg-32M = <0x01d00000 0x300000>;
+		      reg-64M = <0x03d00000 0x300000>;
+		      reg-128M = <0x07d00000 0x300000>;
+		};
+	};
+	seekwcn_boot:seekwcn_boot {
+		    status = "okay";
+		    compatible = "seekwave,sv6160lite";
+		    dma_type = <1>;/*1:ADMA,2:SDMA*/
+	};
+
+};
+
+&pinctrl{
+	console_uart2_pb: console-uart2-pb {
+		ingenic,pinmux = <&gpb 0 1>;
+		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		ingenic,pincfg = <&gpb 0 1 PINCFG_PACK(PINCTL_CFG_BIAS_PULL_PIN_DEFAULT, 1)>;
+	};
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pb>;
+};
+
+&uart2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&console_uart2_pb>;
+};
+
+&uart3 {
+	status = "disable";
+};
+
+&pdma {
+	status = "okay";
+};
+
+&msc0 {
+	status = "okay";
+	pinctrl-names ="default";
+	pinctrl-0 = <&msc0_4bit_f0>;
+	cap-sd-highspeed;
+	cd-inverted;
+	max-frequency = <50000000>;
+	bus-width = <4>;
+	voltage-ranges = <1800 3300>;
+	ingenic,sdio_clk = <0>;
+
+	ingneic,pwr-gpios = <&gpa 6 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+};
+
+&msc1 {
+	status = "okay";
+	pinctrl-names ="default";
+	pinctrl-0 = <&msc1_4bit>;
+
+	cap-sdio-irq;
+	cap-sd-highspeed;
+	max-frequency = <50000000>;
+	bus-width = <4>;
+	voltage-ranges = <1800 3300>;
+
+	ingenic,sdio_clk = <1>;
+	keep-power-in-suspend;
+	ingenic,removal-manual;
+
+	seekwcn_sdio: seekwcn_sdio {
+		 compatible = "seekwave,swt6621_wlan";
+		 ingenic,sdio-reset = <&gpa 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	};
+};
+
+&sfc {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&sfc_pc>;
+	ingenic,sfc-init-frequency = <200000000>;
+	ingenic,sfc-max-frequency = <400000000>;
+	ingenic,use_ofpart_info  = /bits/ 8 <0>;
+	ingenic,spiflash_param_offset = <0>;
+
+	norflash@0 {
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			/* spi nor flash partition */
+			uboot@0 {
+				label = "uboot";
+				reg = <0x0000000 0x40000>;
+				/*read-only;*/
+			};
+
+			kernel@40000 {
+				label = "kernel";
+				reg = <0x40000 0x300000>;
+			};
+
+			rootfs@360000 {
+				label = "rootfs";
+				reg = <0x360000 0xca0000>;
+			};
+		};
+	};
+
+	nandflash@1 {
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			/* spi nand flash partition */
+			partition@0 {
+				label = "uboot";
+				reg = <0x0000000 0x100000>;
+				/*read-only;*/
+			};
+
+			partition@100000 {
+				label = "kernel";
+				reg = <0x100000 0x800000>;
+			};
+
+			partition@900000 {
+				label = "rootfs";
+				reg = <0x900000 0xf700000>;
+			};
+		};
+	};
+
+};
+
+&spi_slv0 {
+	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi_slv_pa>;
+	ingenic,has_dma_support = <1>;
+};
+
+&dtrng {
+	status = "okay";
+};
+
+&mcu {
+    status = "okay";
+};
+
+&pwm {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm5_pc>;
+};
+
+&otg {
+	dr_mode = "otg"; // host,peripheral,otg
+	device-using-dma = <1>;
+	status = "okay";
+};
+
+&otg_phy {
+	status = "okay";
+	enable-vbus-wakeup;
+	ingenic,vbus-dete-gpio = <&gpc 24 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+};
+
+&efuse {
+	status = "okay";
+};
+
+
+/ {
+
+	extclk: extclk {
+		clock-frequency = <24000000>;
+		};
+	gpio_keys: gpio_keys {
+		   compatible = "gpio-keys";
+
+		   wakeup {
+			   label = "WAKEUP";
+			   linux,code = <KEY_WAKEUP>;
+			   gpios = <&gpc 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			   gpio-key,wakeup;
+		   };
+
+		   bootsel0 {
+			   label = "bootsel0";
+			   linux,code = <KEY_ENTER>;
+			   gpios = <&gpc 27 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		   };
+
+		   bootsle1 {
+			   label = "bootsel1";
+			   linux,code = <KEY_BACK>;
+			   gpios = <&gpc 28 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		   };
+
+	   };
+
+};
+
+
+&gpa {
+	ingenic,gpio-sleep-pullup 	= <>;
+	ingenic,gpio-sleep-pulldown 	= <>;
+	ingenic,gpio-sleep-hiz		= <>;
+	ingenic,gpio-sleep-low		= <>;
+	ingenic,gpio-sleep-high		= <>;
+};
+
+&gpb {
+	ingenic,gpio-sleep-pullup 	= <>;
+	ingenic,gpio-sleep-pulldown 	= <>;
+	ingenic,gpio-sleep-hiz		= <>;
+	ingenic,gpio-sleep-low		= <>;
+	ingenic,gpio-sleep-high		= <>;
+};
+
+&gpc {
+	ingenic,gpio-sleep-pullup 	= <>;
+	ingenic,gpio-sleep-pulldown 	= <>;
+	ingenic,gpio-sleep-hiz		= <>;
+	ingenic,gpio-sleep-low		= <>;
+	ingenic,gpio-sleep-high		= <>;
+};
+
+&gpd {
+ 	ingenic,gpio-sleep-pullup 	= <>;
+	ingenic,gpio-sleep-pulldown 	= <>;
+	ingenic,gpio-sleep-hiz		= <>;
+	ingenic,gpio-sleep-low		= <>;
+	ingenic,gpio-sleep-high		= <>;
+};

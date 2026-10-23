@@ -1,0 +1,142 @@
+/dts-v1/;
+
+#include <dt-bindings/input/input.h>
+#include "x2600.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <generated/autoconf.h>
+/*
+    reserved-memory 大小说明：（需要的最小值）
+
+	例如：1080p, 参考帧为 4 帧，没有 B 帧的视频解码，需要预留的内存大小：
+	dec_mem:
+         frame_size = 1920 * 1088 * 3 / 2 = 3110400;
+		 mb_size = (1920 / 16) * (1088 / 16) * 136 = 1109760
+         dec_mem = (ref_frame_count + 1) * (frame_size + mb_size) + 其他结构体 + v4l2 mem
+                     = (4 + 1) * 4220160 + 360448 + 1048576
+                     = 21.5M
+		同理算出720p需要内存为 = 10.3M
+        ps:
+          1.计算出来的内存为极限值，并且只对于 h264 解码，需要多预留
+          2.此为使用libhardware2 接口内存计算方式，若使用ffmpeg以ffmpeg实际使用为准
+          3.要想降低使用内存，则需要编码只采用 1 帧参考帧，则 1080p 只需要 9.4M
+          4.ref frame count 可以使用 cmd_h264_parse 命令查看
+*/
+
+/ {
+	compatible = "ingenic,x2600";
+	/*chosen {
+		bootargs = "console=ttyS0,115200 mem=128M@0x0 ip=off init=/linuxrc ubi.mtd=2 root=ubi0:rootfs ubi.mtd=3 rootfstype=ubifs rw flashtype=nand";
+	};*/
+
+    reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges =<>;
+
+		/*
+			reserved_mem@5000000: 对应预留内存地址起始位置为0x5000000
+			reg = <0x05000000 0x2000000>: 分别对应起始位置为0x05000000, 大小为0x2000000
+			配置的凭据以此芯片x2600为例, 内存总大小为128M, 即总大小为0x8000000
+			x2600通用对应的uboot配置里设置了RMEM_MB=16, 因此总地址的后16M会被RMEM占用, 则剩余内存大小为0x7000000
+			由此当我们分配32M预留内存给reserved_memory时, 起始地址则为0x7000000-0x2000000 = 0x5000000, 大小为0x2000000
+			如果需要改变此区域大小, 需要同时修改起始地址和大小(reserved_mem@5000000 和 reg = <0x05000000 0x2000000> 的地址需要一起修改)
+			需要用到该地址申请内存的驱动, 需要加上 memory-region=<&reserved_memory>; 详细参考下面 felix 等的用法
+		*/
+		reserved_memory: reserved_mem@5000000{
+			compatible = "shared-dma-pool";
+			reg = <0x05000000 0x2000000>;
+		};
+    };
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pe>;
+};
+
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pc>;
+};
+
+&uart2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pd>;
+};
+
+&otg {
+	dr_mode = "otg"; // host,peripheral,otg
+	status = "okay";
+};
+
+&usb {
+	status = "okay";
+};
+
+&otg_phy {
+	status = "okay";
+};
+
+&usb_phy {
+	status = "okay";
+};
+
+&pinctrl {
+	ingenic,gpa_voltage = <GPIO_VOLTAGE_1V8>;
+	ingenic,gpe_msc_voltage = <GPIO_VOLTAGE_3V3>;
+};
+
+&sfc {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&sfc_pd1>;
+	ingenic,sfc-max-frequency = <200000000>;
+	ingenic,sfc-init-frequency= <40000000>;
+	ingenic,use_ofpart_info  = /bits/ 8 <0>;
+	ingenic,spiflash_param_offset = <0>;
+
+};
+
+&tcu0 {
+	status = "disable";
+};
+
+&tcu1 {
+	status = "disable";
+};
+
+/ {
+
+	extclk: extclk {
+		clock-frequency = <24000000>;
+	};
+};
+
+/* 加上 memory-region=<&reserved_memory>; 表示会用上方设置的预留内存地址和大小作为内存申请 */
+&jpege {
+	status = "okay";
+	memory-region=<&reserved_memory>;
+};
+
+&jpegd {
+	status = "okay";
+	memory-region=<&reserved_memory>;
+};
+
+&felix {
+	status = "okay";
+	memory-region=<&reserved_memory>;
+};
+
+&pdma {
+	status = "okay";
+};
+
+&pdma1 {
+	status = "okay";
+};
+
+
